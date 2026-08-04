@@ -1,0 +1,10 @@
+{
+  "_synthetic": true,
+  "_note": "SYNTHETIC test data, not a real duty roster. 10-column schedule layout header + two synthetic rows.",
+  "sheetName": "SYNTHETIC",
+  "rows": [
+    ["Dienst", "Umlauf", "Tätigkeit", "Abfahrt", "Abfahrtsort", "Ankunft", "Ankunftsort", "Beginn", "Ende", "Bez. Zeit"],
+    ["9001", "9001", "Dienst", "05:00", "Betriebshof", "12:00", "Betriebshof", "05:00", "12:00", "07:00"],
+    ["", "12/1", "Dienst", "05:10", "AAA", "06:40", "BBB", "", "", ""]
+  ]
+}

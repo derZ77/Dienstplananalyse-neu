@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "BV008",
+  "ruleSetId": "shared-driving-time-limit-v1",
+  "organization": "SHARED",
+  "status": "draft",
+  "enabled": true,
+  "maxContinuousDrivingMinutes": 270,
+  "qualifyingInterruption": {
+    "singleMinimumMinutes": 45,
+    "splitSequence": [15, 30]
+  },
+  "approvalStatus": {
+    "maxContinuousDrivingMinutes": "confirmed",
+    "singleMinimumMinutes": "confirmed",
+    "splitSequence": "confirmed",
+    "ruleSet": "draft"
+  },
+  "sourceReferences": [
+    "docs/bv-check-catalog.md (BV008)",
+    "js/v2/rules/config/shared/lenkzeit.v1.json"
+  ],
+  "notes": "Continuous driving-time limit only (4 h 30 min). Deliberately EXCLUDES the driving-quota rule, creditable turn-around allowances, the stop-distance exception, weekend/night/line exceptions, statutory working-time pauses, and block-break rules. The individual thresholds are confirmed; the rule set itself is still draft and is configured here separately from the draft lenkzeit.v1.json so this single rule can run without activating the others."
+}

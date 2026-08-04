@@ -1,0 +1,3085 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Dienstplan-Analyse (Schritt für Schritt)</title>
+	<!-- Phase 1: Lokaler Datenschutzmodus – CSP, keine externen Laufzeitressourcen. -->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'">
+	<!-- Excel-Bibliothek lokal vendored (ersetzt CDN); Schrift als System-Stack (keine Google Fonts). -->
+	<script src="vendor/xlsx/xlsx.full.min.js"></script>
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+			margin: 0;
+			background: linear-gradient(135deg, #e3f2fd 0%, #e1f5fe 100%);
+			color: #212121;
+			padding: 2rem;
+		}
+
+		.container {
+			max-width: 900px;
+			margin: 0 auto;
+		}
+
+		h1 {
+			font-weight: 500;
+			text-align: center;
+			margin-bottom: 2rem;
+			color: #01579b;
+		}
+
+		.block {
+			background: #ffffff;
+			border-radius: 16px;
+			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+			padding: 1.75rem;
+			margin-bottom: 1.75rem;
+			transition: transform 0.3s, box-shadow 0.3s;
+		}
+
+		.block:hover {
+			transform: translateY(-6px);
+			box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+		}
+
+		.block h2 {
+			margin-top: 0;
+			margin-bottom: 1rem;
+			font-size: 1.25rem;
+			font-weight: 500;
+			color: #0277bd;
+		}
+
+		.result {
+			background: #f5faff;
+			border-radius: 8px;
+			padding: 1.25rem;
+			font-size: 0.95rem;
+			line-height: 1.4;
+			color: #37474f;
+			white-space: pre-wrap;
+		}
+
+		/* Hervorhebung für nicht BV-konforme Dienste in Block 9 */
+		.result .bv-not-ok {
+			background: #ffebee;
+			/* leichtes Rot */
+			border-left: 4px solid #c62828;
+			padding: 6px 10px;
+			margin: 6px 0;
+			font-weight: 500;
+			color: #b71c1c;
+			/* dunkler Rotton für Text */
+		}
+
+		.result .shift-group {
+			margin-bottom: 0.9rem;
+		}
+
+		.result .shift-group-title {
+			font-weight: 700;
+			margin-bottom: 0.25rem;
+		}
+
+		.result .shift-group-lines {
+			padding-left: 0.4rem;
+		}
+
+		.result .shift-f1 {
+			color: #1b5e20;
+		}
+
+		.result .shift-f2 {
+			color: #43a047;
+		}
+
+		.result .shift-f3 {
+			color: #9a6b00;
+		}
+
+		.result .shift-gf1,
+		.result .shift-gf2,
+		.result .shift-gf3 {
+			color: #bf5b04;
+		}
+
+		.result .shift-s1 {
+			color: #1e88e5;
+		}
+
+		.result .shift-s2 {
+			color: #0d47a1;
+		}
+
+		.result .shift-n {
+			color: #111111;
+		}
+
+		input[type="file"] {
+			margin-top: 0.5rem;
+			font-size: 0.95rem;
+		}
+
+		/* --- KI-Chat Widget --- */
+		.chat-toggle {
+			position: fixed;
+			bottom: 20px;
+			right: 20px;
+			width: 56px;
+			height: 56px;
+			border-radius: 50%;
+			border: none;
+			background: linear-gradient(135deg, #0288d1, #26c6da);
+			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+			color: #fff;
+			font-size: 24px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 1000;
+		}
+
+		.chat-toggle:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+		}
+
+		.chat-window {
+			position: fixed;
+			bottom: 90px;
+			right: 20px;
+			width: 340px;
+			max-height: 460px;
+			display: none;
+			flex-direction: column;
+			background: #ffffff;
+			border-radius: 16px;
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+			z-index: 999;
+			overflow: hidden;
+		}
+
+		.chat-header {
+			padding: 0.75rem 1rem;
+			background: linear-gradient(135deg, #0277bd, #00acc1);
+			color: #fff;
+			font-weight: 500;
+			font-size: 0.95rem;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.chat-header span {
+			font-size: 0.85rem;
+			opacity: 0.9;
+		}
+
+		.chat-close {
+			border: none;
+			background: transparent;
+			color: #fff;
+			font-size: 18px;
+			cursor: pointer;
+		}
+
+		.chat-messages {
+			padding: 0.75rem 1rem;
+			font-size: 0.9rem;
+			line-height: 1.4;
+			overflow-y: auto;
+			flex: 1;
+			background: #f5faff;
+		}
+
+		.chat-message {
+			margin-bottom: 0.5rem;
+		}
+
+		.chat-message.user {
+			text-align: right;
+		}
+
+		.chat-message.user span {
+			display: inline-block;
+			background: #bbdefb;
+			padding: 0.4rem 0.6rem;
+			border-radius: 12px 12px 0 12px;
+		}
+
+		.chat-message.bot span {
+			display: inline-block;
+			background: #e1f5fe;
+			padding: 0.4rem 0.6rem;
+			border-radius: 12px 12px 12px 0;
+		}
+
+		.chat-input-area {
+			border-top: 1px solid #e0e0e0;
+			padding: 0.5rem;
+			background: #fff;
+			display: flex;
+			gap: 0.5rem;
+			align-items: flex-end;
+		}
+
+		.chat-input-area textarea {
+			flex: 1;
+			resize: none;
+			border-radius: 8px;
+			border: 1px solid #b0bec5;
+			padding: 0.5rem;
+			font-family: inherit;
+			font-size: 0.9rem;
+			min-height: 40px;
+			max-height: 80px;
+		}
+
+		.chat-input-area button {
+			border: none;
+			border-radius: 999px;
+			padding: 0.4rem 0.9rem;
+			background: #0277bd;
+			color: #fff;
+			font-size: 0.9rem;
+			cursor: pointer;
+			white-space: nowrap;
+		}
+
+		.chat-input-area button:hover {
+			background: #01579b;
+		}
+
+		/* --- V2 Check Explorer --- */
+		.check-explorer-controls {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 0.65rem;
+			margin-bottom: 1rem;
+		}
+
+		.check-explorer-controls input,
+		.check-explorer-controls select {
+			width: 100%;
+			padding: 0.45rem 0.55rem;
+			border: 1px solid #b0bec5;
+			border-radius: 8px;
+			font: inherit;
+			background: #fff;
+		}
+
+		.check-explorer-controls label {
+			display: grid;
+			gap: 0.25rem;
+			font-size: 0.82rem;
+			font-weight: 500;
+			color: #455a64;
+		}
+
+		.check-explorer-actions {
+			display: flex;
+			align-items: end;
+		}
+
+		.check-explorer-actions button {
+			border: none;
+			border-radius: 999px;
+			padding: 0.5rem 0.9rem;
+			background: #0277bd;
+			color: #fff;
+			font: inherit;
+			cursor: pointer;
+		}
+
+		.check-explorer-statistics {
+			display: grid;
+			grid-template-columns: repeat(5, minmax(0, 1fr));
+			gap: 0.5rem;
+			margin-bottom: 1rem;
+		}
+
+		.check-explorer-stat {
+			border-radius: 8px;
+			padding: 0.55rem;
+			background: #f5faff;
+			border-left: 4px solid #90a4ae;
+			font-size: 0.8rem;
+		}
+
+		.check-explorer-stat strong {
+			display: block;
+			font-size: 1.25rem;
+		}
+
+		.check-explorer-stat.pass { border-color: #2e7d32; }
+		.check-explorer-stat.warning { border-color: #f9a825; }
+		.check-explorer-stat.error { border-color: #ef6c00; }
+		.check-explorer-stat.violation { border-color: #c62828; }
+
+		.check-explorer-table-wrap {
+			overflow-x: auto;
+			border: 1px solid #d7e1e6;
+			border-radius: 8px;
+		}
+
+		.check-explorer-table {
+			width: 100%;
+			min-width: 760px;
+			border-collapse: collapse;
+			font-size: 0.86rem;
+		}
+
+		.check-explorer-table th,
+		.check-explorer-table td {
+			padding: 0.55rem;
+			border-bottom: 1px solid #e3edf2;
+			vertical-align: top;
+			text-align: left;
+		}
+
+		.check-explorer-table thead th {
+			background: #e1f5fe;
+			color: #01579b;
+			white-space: nowrap;
+		}
+
+		.check-explorer-group th {
+			background: #f1f8fb;
+			color: #455a64;
+			font-weight: 600;
+		}
+
+		.check-tone-pass { background: #edf7ed; }
+		.check-tone-warning { background: #fff8dd; }
+		.check-tone-error { background: #fff0df; }
+		.check-tone-violation { background: #ffebee; }
+
+		.check-explorer-empty {
+			margin: 0;
+			padding: 0.8rem;
+			color: #546e7a;
+		}
+
+		/* --- V2 Dienstübersicht / Review Dashboard --- */
+		.review-dashboard-statistics {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 0.5rem;
+			margin-bottom: 1rem;
+		}
+
+		.review-dashboard-stat {
+			border-radius: 8px;
+			padding: 0.55rem;
+			background: #f5faff;
+			border-left: 4px solid #90a4ae;
+			font-size: 0.8rem;
+		}
+
+		.review-dashboard-stat strong {
+			display: block;
+			font-size: 1.25rem;
+		}
+
+		.review-dashboard-stat.critical { border-color: #c62828; }
+		.review-dashboard-stat.warning { border-color: #f9a825; }
+		.review-dashboard-stat.unremarkable { border-color: #2e7d32; }
+
+		.review-dashboard-filter {
+			display: flex;
+			justify-content: flex-end;
+			margin-bottom: 0.7rem;
+		}
+
+		.review-dashboard-filter label {
+			display: grid;
+			gap: 0.25rem;
+			font-size: 0.82rem;
+			font-weight: 500;
+			color: #455a64;
+		}
+
+		.review-dashboard-filter select {
+			min-width: 230px;
+			padding: 0.45rem 0.55rem;
+			border: 1px solid #b0bec5;
+			border-radius: 8px;
+			font: inherit;
+		}
+
+		.review-dashboard-table-wrap { overflow-x: auto; border: 1px solid #d7e1e6; border-radius: 8px; }
+		.review-dashboard-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 0.86rem; }
+		.review-dashboard-table th,
+		.review-dashboard-table td { padding: 0.55rem; border-bottom: 1px solid #e3edf2; text-align: left; vertical-align: top; }
+		.review-dashboard-table thead th { background: #e1f5fe; color: #01579b; white-space: nowrap; }
+		.review-service-row.review-state-critical { background: #ffebee; }
+		.review-service-row.review-state-warning { background: #fff8dd; }
+		.review-service-row.review-state-unremarkable { background: #edf7ed; }
+		.review-dashboard-toggle { border: 1px solid #0277bd; border-radius: 999px; padding: 0.3rem 0.65rem; background: #fff; color: #0277bd; font: inherit; cursor: pointer; white-space: nowrap; }
+		.review-dashboard-details td { padding: 0.8rem; background: #f5faff; }
+		.review-dashboard-checks { width: 100%; min-width: 700px; margin-top: 0.6rem; border-collapse: collapse; font-size: 0.82rem; }
+		.review-dashboard-checks th,
+		.review-dashboard-checks td { padding: 0.45rem; border: 1px solid #d7e1e6; text-align: left; vertical-align: top; }
+		.review-dashboard-checks th { background: #e1f5fe; color: #01579b; }
+		.review-dashboard-empty { margin: 0; padding: 0.8rem; color: #546e7a; }
+
+		@media (max-width: 720px) {
+			body { padding: 1rem; }
+			.check-explorer-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			.check-explorer-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			.review-dashboard-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		}
+
+		/* Phase 3I.34 — Prüfbericht. Status never travels by colour alone: every badge carries its
+		   own text label, and the symbol beside it is decorative. Print-prepared: blocks, no table. */
+		#pruefbericht .report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .5rem 1rem; margin: .75rem 0 1.25rem; }
+		#pruefbericht .report-figure dt { font-size: .8rem; opacity: .75; }
+		#pruefbericht .report-figure dd { margin: 0; font-size: 1.15rem; font-weight: 600; }
+		#pruefbericht .report-result { border: 1px solid rgba(128,128,128,.35); border-radius: .4rem; margin-bottom: .5rem; break-inside: avoid; page-break-inside: avoid; }
+		#pruefbericht summary { cursor: pointer; padding: .55rem .7rem; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: baseline; }
+		#pruefbericht summary:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+		#pruefbericht .report-status { display: inline-flex; gap: .35rem; align-items: baseline; border: 1px solid currentColor; border-radius: .25rem; padding: .05rem .4rem; font-size: .8rem; }
+		#pruefbericht .report-status[data-status="FAIL"] { color: #8a1f11; }
+		#pruefbericht .report-status[data-status="PASS"] { color: #1d5c2f; }
+		#pruefbericht .report-result-id { font-family: ui-monospace, monospace; font-weight: 600; }
+		#pruefbericht .report-result-name { flex: 1 1 14rem; }
+		#pruefbericht .report-result-body { padding: 0 .7rem .7rem; }
+		#pruefbericht .report-handover { margin-top: .6rem; border-left: 3px solid rgba(128,128,128,.5); padding-left: .6rem; }
+		#pruefbericht .report-handover ul { list-style: none; margin: 0; padding: 0; }
+		#pruefbericht .report-handover-entry { margin-bottom: .5rem; }
+		#pruefbericht .report-handover-note { font-size: .85rem; opacity: .85; }
+		#pruefbericht .report-detail-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .25rem .75rem; }
+		#pruefbericht .report-detail-values dt { font-size: .8rem; opacity: .75; }
+		#pruefbericht .report-detail-values dd { margin: 0; }
+		#pruefbericht .report-empty { padding: .75rem; opacity: .85; }
+		/* Phase 3I.35 — filter controls and the affected-duty list. Native elements only. */
+		#pruefbericht .report-filters { border: 0; margin: 0 0 1rem; padding: 0; }
+		#pruefbericht .report-filters fieldset { border: 1px solid rgba(128,128,128,.35); border-radius: .4rem; padding: .5rem .7rem; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: end; }
+		#pruefbericht .report-filters legend { padding: 0 .3rem; font-weight: 600; }
+		#pruefbericht .report-filter-row { display: flex; flex-direction: column; gap: .15rem; }
+		#pruefbericht .report-filter-row label { font-size: .8rem; opacity: .8; }
+		#pruefbericht .report-filter-check { flex-direction: row; align-items: center; gap: .35rem; }
+		#pruefbericht .report-filter-check label { font-size: .9rem; opacity: 1; }
+		#pruefbericht .report-filter-count { margin: .4rem 0 0; font-size: .85rem; opacity: .85; }
+		#pruefbericht .report-affected-list { display: flex; flex-wrap: wrap; gap: .25rem .5rem; list-style: none; margin: .25rem 0; padding: 0; }
+		#pruefbericht .report-affected-service { font-family: ui-monospace, monospace; border: 1px solid rgba(128,128,128,.35); border-radius: .2rem; padding: 0 .3rem; font-size: .85rem; }
+		/* Phase 3I.36 — A4 print. The screen list is filtered; the paper carries the whole report. */
+		#pruefbericht .report-actions { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: .5rem 0 1rem; }
+		#pruefbericht .report-action-status { margin: 0; font-size: .85rem; opacity: .85; }
+		#pruefbericht .report-print-all { display: none; }
+		@page { size: A4 portrait; margin: 18mm 15mm; }
+		@media print {
+			.no-print { display: none !important; }
+			#check-explorer { display: none !important; }
+			#review-dashboard { display: none !important; }
+			#pruefbericht .report-results { display: none !important; }
+			#pruefbericht .report-print-all { display: block !important; }
+			#pruefbericht details { display: block; }
+			#pruefbericht details > div { display: block !important; }
+			#pruefbericht summary { list-style: none; }
+			#pruefbericht { font-size: 10.5pt; color: #000; }
+			#pruefbericht .report-status { border: 1pt solid #000; color: #000 !important; }
+			#pruefbericht .report-result { border: 1pt solid #000; break-inside: avoid; page-break-inside: avoid; }
+			#pruefbericht .report-handover { break-before: auto; }
+		}
+		@media print { #pruefbericht .no-print { display: none !important; } }
+		@media print { #pruefbericht details { display: block; } #pruefbericht details > div { display: block !important; } }
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<h1>Dienstplan-Analyse (Schritt für Schritt)</h1>
+
+		<!-- Block 0 -->
+		<div class="block">
+			<h2>0. Datei auswählen</h2>
+			<input id="file-input" type="file" accept=".xlsx,.xls,.pdf,application/pdf" />
+			<div id="file-result" class="result">Noch keine Datei ausgewählt.</div>
+			<div id="pdf-import-result" class="result" hidden aria-live="polite"></div>
+			<!-- Phase 4.5: the local Dienstplan export. Filled by pdf-import-bootstrap.js and hidden
+			     unless a JNV-/JES-Dienstplan-PDF was imported successfully and is exportable. -->
+			<div id="dienstplan-export"></div>
+		</div>
+
+		<!-- Block 0b: optionales Begleitdokument (Phase 3F) -->
+		<div class="block">
+			<h2>0b. Optionales Begleitdokument</h2>
+			<label for="companion-file-input">Optionale Ergänzung – passende Wagenkarte oder Umlauftafel (nur .xlsx). Für die Einzelanalyse nicht erforderlich.</label>
+			<input id="companion-file-input" type="file" accept=".xlsx" />
+			<div id="companion-import-result" class="result" hidden aria-live="polite"></div>
+			<div id="combination-result" class="result" hidden aria-live="polite"></div>
+			<div id="match-result" class="result" hidden aria-live="polite"></div>
+			<div id="rule-analysis-result" class="result" hidden aria-live="polite"></div>
+		</div>
+
+		<!-- Such-Block -->
+		<div class="block">
+			<h2>Suche in den Auswertungen</h2>
+			<div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
+				<input id="search-input" type="text" placeholder="z. B. ID 72, 5/11, BBU ..." style="flex:1; min-width:180px; padding:0.4rem; border-radius:8px; border:1px solid #b0bec5;" />
+				<button id="search-clear" style="border:none; border-radius:999px; padding:0.4rem 0.9rem; background:#0277bd; color:#fff; cursor:pointer;">
+					Zurücksetzen
+				</button>
+			</div>
+			<div id="search-info" class="result">
+				Geben Sie einen Suchbegriff ein, um die Ergebnis-Blöcke zu filtern.
+			</div>
+		</div>
+
+		<!-- Block 1 -->
+		<div class="block">
+			<h2>1. Anzahl eindeutige Dienste</h2>
+			<div id="plan-type-result" class="result">Noch kein Dienstplan erkannt.</div>
+			<div id="count-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 2 -->
+		<div class="block">
+			<h2>2. Anzahl geteilte Dienste</h2>
+			<div id="shared-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 3 -->
+		<div class="block">
+			<h2>3. Reserve Dienste</h2>
+			<p>IDs: 1, 100, 190, 90, 1101, 1102, 1201, 1202, 2101, 2102, 2201, 2202</p>
+			<div id="reserve-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 4 -->
+		<div class="block">
+			<h2>4. Dienste &gt; 08:30h</h2>
+			<div id="long-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 5 -->
+		<div class="block">
+			<h2>5. Dienste mit unterschiedlichen Start- und End-Orten</h2>
+			<div id="loc-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 6 -->
+		<div class="block">
+			<h2>6. Dienste mit Dienstteilstück &gt;04:30h und Linie/Kurs</h2>
+			<div id="segment-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 7 -->
+		<div class="block">
+			<h2>7. Lenkzeit real vor/nach Pause laut Wagenkarte</h2>
+			<div id="real-driving-time-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 8 -->
+		<div class="block">
+			<h2>8. Schichtzuweisung anhand des Dienstbeginns</h2>
+			<div id="shift-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 9 -->
+		<div class="block">
+			<h2>9. Dienste nach Linie/Kurs</h2>
+			<div id="route-result" class="result">Warte...</div>
+		</div>
+
+		<!-- Block 10 -->
+		<div class="block">
+			<h2>10. Pausen zwischen 30 und 120 Minuten</h2>
+			<div id="pause-result" class="result">Warte...</div>
+		</div>
+
+		<!-- V2: verdichtet vorhandene CheckReports auf Dienstebene, ohne Checks auszuführen. -->
+		<section id="review-dashboard" class="block" aria-labelledby="review-dashboard-title">
+			<h2 id="review-dashboard-title">Dienstübersicht / Review Dashboard</h2>
+			<p>Prüfergebnisse je Dienst priorisieren und bei Bedarf im dienstbezogenen Check Explorer öffnen.</p>
+			<div class="review-dashboard-statistics" aria-label="Dienstübersicht Statistik">
+				<div class="review-dashboard-stat"><strong data-review-stat="totalServices">0</strong>Gesamtdienste</div>
+				<div class="review-dashboard-stat critical"><strong data-review-stat="criticalServices">0</strong>Kritische Dienste</div>
+				<div class="review-dashboard-stat warning"><strong data-review-stat="warningServices">0</strong>Dienste mit Warnungen</div>
+				<div class="review-dashboard-stat unremarkable"><strong data-review-stat="unremarkableServices">0</strong>Unauffällige Dienste</div>
+			</div>
+			<div class="review-dashboard-filter">
+				<label>Ansicht
+					<select data-review-dashboard="filter"><option value="all">Alle Dienste</option><option value="critical">Nur kritische Dienste</option><option value="warning">Nur Dienste mit Warnungen</option><option value="unremarkable">Nur Dienste ohne Auffälligkeiten</option></select>
+				</label>
+			</div>
+			<div class="review-dashboard-table-wrap">
+				<table class="review-dashboard-table">
+					<thead><tr><th>Dienstnummer</th><th>Gesamtstatus</th><th>Anzahl Checks</th><th>PASS</th><th>WARNING</th><th>ERROR</th><th>VIOLATION</th><th>Höchste Severity</th><th>Details</th></tr></thead>
+					<tbody data-review-dashboard="rows"></tbody>
+				</table>
+				<p class="review-dashboard-empty" data-review-dashboard="empty" aria-live="polite">Noch kein CheckReport vorhanden.</p>
+			</div>
+		</section>
+
+		<!-- V2: Anzeige bereits erzeugter CheckReports; führt keine Checks aus. -->
+		<section id="pruefbericht" class="block" aria-labelledby="pruefbericht-title">
+			<!-- Phase 3I.34: the readable check report. Filled by check-explorer-bootstrap.js from the
+			     SAME CheckReport the explorer already receives — one report, one source. -->
+		</section>
+
+		<section id="check-explorer" class="block" aria-labelledby="check-explorer-title">
+			<h2 id="check-explorer-title">Check Explorer</h2>
+			<p>Vorhandene Prüfergebnisse filtern, sortieren und nach Kategorie oder Dienst gruppieren.</p>
+			<div class="check-explorer-controls" aria-label="CheckReport filtern und sortieren">
+				<label>Kategorie
+					<select data-check-explorer="category"><option value="">Alle Kategorien</option><option>BV</option><option>ARBZG</option><option>FPERSV</option><option>INTERNAL</option><option>WAGENKARTE</option><option>CUSTOM</option></select>
+				</label>
+				<label>Severity
+					<select data-check-explorer="severity"><option value="">Alle Severity-Stufen</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>VIOLATION</option></select>
+				</label>
+				<label>Status
+					<select data-check-explorer="status"><option value="">Alle Status</option><option>PASS</option><option>FAIL</option><option>SKIP</option><option>NOT_APPLICABLE</option></select>
+				</label>
+				<label>Dienstnummer
+					<input data-check-explorer="service-number" type="search" placeholder="z. B. 1103">
+				</label>
+				<label>Check-ID
+					<input data-check-explorer="check-id" type="search" placeholder="z. B. BV003">
+				</label>
+				<label>Freitextsuche
+					<input data-check-explorer="search" type="search" placeholder="Name oder Nachricht">
+				</label>
+				<label>Sortierung
+					<select data-check-explorer="sort-by"><option value="severity">Severity</option><option value="serviceNumber">Dienstnummer</option><option value="checkId">Check-ID</option><option value="category">Kategorie</option></select>
+				</label>
+				<label>Gruppierung
+					<select data-check-explorer="group-by"><option value="category">Kategorie</option><option value="service">Dienst</option></select>
+				</label>
+				<div class="check-explorer-actions"><button type="button" data-check-explorer="reset">Filter zurücksetzen</button></div>
+			</div>
+
+			<div class="check-explorer-statistics" aria-label="CheckReport Statistik">
+				<div class="check-explorer-stat"><strong data-check-stat="total">0</strong>Anzahl Checks</div>
+				<div class="check-explorer-stat pass"><strong data-check-stat="pass">0</strong>PASS</div>
+				<div class="check-explorer-stat warning"><strong data-check-stat="warning">0</strong>WARNING</div>
+				<div class="check-explorer-stat error"><strong data-check-stat="error">0</strong>ERROR</div>
+				<div class="check-explorer-stat violation"><strong data-check-stat="violation">0</strong>VIOLATION</div>
+			</div>
+
+			<div class="check-explorer-table-wrap">
+				<table class="check-explorer-table">
+					<thead><tr><th>Kategorie</th><th>Check-ID</th><th>Name</th><th>Status</th><th>Severity</th><th>Dienst</th><th>Nachricht</th></tr></thead>
+					<tbody data-check-explorer="rows"></tbody>
+				</table>
+				<p class="check-explorer-empty" data-check-explorer="empty" aria-live="polite">Noch kein CheckReport vorhanden.</p>
+			</div>
+		</section>
+	</div>
+
+		<!-- Phase 1: KI-Fragen-Block und KI-Chat-Widget entfernt (kein externer KI-Dienst). -->
+
+	<!-- Analyse-Skript Blöcke 1–9 -->
+	<script>
+
+		/* --- Gemeinsame Hilfsfunktionen für parseTabular (Blöcke 1–9) --- */
+
+		// Bereiche für geteilte Dienste:
+		// 40–59, 140–159, 1140–1159, 1240–1259, 2140–2159, 2240–2259
+		function isSharedService(id) {
+			return (
+				(id >= 40 && id <= 59) || // ursprüngliche geteilte Dienste
+				(id >= 140 && id <= 159) || // ursprüngliche geteilte Dienste
+				(id >= 1140 && id <= 1159) || // Mo–Fr Schule Straßenbahn geteilt
+				(id >= 1240 && id <= 1259) || // Mo–Fr Ferien Straßenbahn geteilt
+				(id >= 2140 && id <= 2159) || // Mo–Fr Schule Bus geteilt
+				(id >= 2240 && id <= 2259) // Mo–Fr Ferien Bus geteilt
+			);
+		}
+
+		// HH:MM -> Minuten
+		function parseTimeToMinutes(str) {
+			if (typeof str !== 'string') return null;
+			const m = str.match(/^(\d{1,2}):(\d{2})$/);
+			if (!m) return null;
+			const h = parseInt(m[1], 10);
+			const mi = parseInt(m[2], 10);
+			if (isNaN(h) || isNaN(mi)) return null;
+			return h * 60 + mi;
+		}
+
+		// Differenz in Minuten, korrekt über Mitternacht
+		function diffMinutes(startMin, endMin) {
+			let diff = endMin - startMin;
+			if (diff < 0) diff += 24 * 60;
+			return diff;
+		}
+
+		function formatDuration(totalMin) {
+			const h = Math.floor(totalMin / 60);
+			const m = totalMin % 60;
+			return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+		}
+
+		function formatCourseLabel(c) {
+			const cc = (c || '').trim();
+			if (/^[0-9]{1,2}\/\d{1,2}$/.test(cc)) return ` (${cc})`;
+			return cc ? ` (${cc})` : '';
+		}
+
+		function parseTimeToMin9(str) {
+			if (typeof str !== 'string') return null;
+			const m = str.match(/^(\d{1,2}):(\d{2})$/);
+			if (!m) return null;
+			const h = parseInt(m[1], 10);
+			const mi = parseInt(m[2], 10);
+			if (isNaN(h) || isNaN(mi)) return null;
+			return h * 60 + mi;
+		}
+
+		function diffMinutesOverMidnight9(startMin, endMin) {
+			if (startMin == null || endMin == null) return null;
+			let diff = endMin - startMin;
+			if (diff < 0) diff += 24 * 60;
+			return diff;
+		}
+
+		function formatMinutesToHHMM9(totalMin) {
+			if (totalMin == null) return '';
+			const h = Math.floor(totalMin / 60);
+			const m = totalMin % 60;
+			return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+		}
+
+		function formatCourse9(courseStr) {
+			const c = (courseStr || '').trim();
+			if (!c) return '';
+			return ` (${c})`;
+		}
+
+		const SPECIAL_LOCATIONS9 = ['HLZ', 'TGR', 'LGR'];
+		const MIN_BV_9 = 3.5 * 60; // 210
+		const MAX_BV_9 = 4.5 * 60; // 270
+
+		/* --- parseTabular: extrahierte Analyse-Logik (Blöcke 1–9) --- */
+		function parseTabular(rows, workbookInfo) {
+
+			// Block 1: eindeutige IDs
+			// Alle positiven numerischen Dienstnummern berücksichtigen (inkl. 1101ff, 2101ff usw.)
+			const ids = new Set();
+			for (let i = 1; i < rows.length; i++) {
+				const num = parseInt(rows[i][2], 10); // Spalte C
+				if (!isNaN(num) && num >= 1) {
+					ids.add(num);
+				}
+			}
+			// Dienstplan-Typ aus der Dienstnummernstruktur bestimmen
+			const idArray = Array.from(ids);
+			const hasAnyInRange = (min, max) =>
+				idArray.some(id => id >= min && id <= max);
+
+			let fahrzeug = null;
+			let zeitraum = null;
+
+			// Straßenbahn: 1101–1199, 1201–1299, 1301–1399, 1401–1499
+			if (hasAnyInRange(1101, 1499)) {
+				fahrzeug = 'Straßenbahn';
+				if (hasAnyInRange(1101, 1199)) {
+					zeitraum = 'Mo–Fr Schule';
+				} else if (hasAnyInRange(1201, 1299)) {
+					zeitraum = 'Mo–Fr Ferien';
+				} else if (hasAnyInRange(1301, 1399)) {
+					zeitraum = 'Samstag';
+				} else if (hasAnyInRange(1401, 1499)) {
+					zeitraum = 'Sonntag';
+				}
+				// Bus: 2101–2199, 2201–2299, 2301–2399, 2401–2499
+			} else if (hasAnyInRange(2101, 2499)) {
+				fahrzeug = 'Bus';
+				if (hasAnyInRange(2101, 2199)) {
+					zeitraum = 'Mo–Fr Schule';
+				} else if (hasAnyInRange(2201, 2299)) {
+					zeitraum = 'Mo–Fr Ferien';
+				} else if (hasAnyInRange(2301, 2399)) {
+					zeitraum = 'Samstag';
+				} else if (hasAnyInRange(2401, 2499)) {
+					zeitraum = 'Sonntag';
+				}
+			}
+
+			let planHinweis = '';
+			if (fahrzeug && zeitraum) {
+				planHinweis = `${fahrzeug} – ${zeitraum}`;
+			} else if (fahrzeug) {
+				planHinweis = `${fahrzeug} (Zeitraum nicht eindeutig erkennbar)`;
+			} else {
+				planHinweis = 'Dienstplan-Typ anhand der Nummern nicht eindeutig erkennbar (vermutlich ältere Struktur).';
+			}
+
+			const planTypeText = `Erkannter Dienstplan: ${planHinweis}`;
+			const countText = `Anzahl eindeutiger Dienst-IDs: ${ids.size}`;
+
+			// Block 2: geteilte Dienste mit Schichtdauer-Prüfung (O/P, max. 12:00h)
+			const sharedIds = [...ids].filter(id => isSharedService(id));
+			const sharedIdsSorted = sharedIds.slice().sort((a, b) => a - b);
+			const sharedSet = new Set(sharedIdsSorted);
+
+			// Für jede geteilte ID: erste Zeit aus Spalte O (Index 14) und
+			// letzte Zeit aus Spalte P (Index 15) bestimmen
+			const sharedInfo = new Map(); // id -> { minStart, maxEnd }
+			let currentIdShared = null;
+
+			for (let i = 1; i < rows.length; i++) {
+				const row = rows[i];
+
+				const idCell = row[2];
+				if (/^\d+$/.test(idCell)) {
+					currentIdShared = parseInt(idCell, 10);
+				}
+
+				if (!sharedSet.has(currentIdShared)) continue;
+
+				const startStr = row[14]; // Spalte O
+				const endStr = row[15]; // Spalte P
+
+				const startMin = parseTimeToMinutes(startStr);
+				const endMin = parseTimeToMinutes(endStr);
+
+				if (!sharedInfo.has(currentIdShared)) {
+					sharedInfo.set(currentIdShared, { minStart: null, maxEnd: null });
+				}
+				const info = sharedInfo.get(currentIdShared);
+
+				if (startMin !== null) {
+					if (info.minStart === null || startMin < info.minStart) {
+						info.minStart = startMin;
+					}
+				}
+
+				if (endMin !== null) {
+					if (info.maxEnd === null || endMin > info.maxEnd) {
+						info.maxEnd = endMin;
+					}
+				}
+			}
+
+			// Auswertung: Schichtdauer und Prüfung > 12:00h
+			const over12 = [];
+			const sharedLines = [];
+
+			sharedIdsSorted.forEach(id => {
+				const info = sharedInfo.get(id);
+				if (!info || info.minStart === null || info.maxEnd === null) {
+					sharedLines.push(`ID ${id}: keine gültigen Zeiten in Spalte O/P gefunden`);
+					return;
+				}
+
+				let diff = info.maxEnd - info.minStart;
+
+				// über Mitternacht
+				if (diff < 0) diff += 24 * 60;
+
+				const h = Math.floor(diff / 60);
+				const m = diff % 60;
+				const durStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+				sharedLines.push(`ID ${id}: Schichtdauer ${durStr} (Spalte O \u2192 P)`);
+
+				if (diff > 12 * 60) {
+					over12.push(`ID ${id} (${durStr})`);
+				}
+			});
+
+			let sharedText =
+				`Anzahl geteilte Dienste: ${sharedIdsSorted.length}\n` +
+				`IDs: ${sharedIdsSorted.join(', ')}`;
+
+			if (sharedIdsSorted.length > 0) {
+				sharedText +=
+					`\n\nSchichtdauer je geteilter Dienst (erste Zeit in Spalte O bis letzte Zeit in Spalte P):\n` +
+					sharedLines.join('\n');
+			}
+
+			if (sharedIdsSorted.length === 0) {
+				sharedText += `\n\nKeine geteilten Dienste gefunden.`;
+			} else if (over12.length === 0) {
+				sharedText += `\n\nAlle geteilten Dienste liegen bei maximal 12:00h Schichtdauer.`;
+			} else {
+				sharedText +=
+					`\n\nAchtung: folgende geteilte Dienste überschreiten 12:00h Schichtdauer:\n` +
+					over12.join(', ');
+			}
+
+			// Block 3: Reserve Dienste
+			const reserveIds = [
+				1, 100, 190, 90,
+				1101, 1102, 1201, 1202,
+				1301, 1302, 1401, 1402,
+				2101, 2102, 2201, 2202,
+				2301, 2302, 2401, 2402
+			];
+			const foundReserve = reserveIds.filter(id => ids.has(id));
+			const reserveText = `Anzahl Reserve-Dienste: ${foundReserve.length}\nIDs: ${foundReserve.sort((a,b)=>a-b).join(', ')}`;
+
+			// Block 4: Dienste >08:30h ohne Reserve
+			const longSet = new Set();
+			let lastL = null;
+			rows.slice(1).forEach(r => {
+				if (/^\d+$/.test(r[2])) lastL = parseInt(r[2], 10);
+				const raw = r[16];
+				if (lastL != null && typeof raw === 'string') {
+					const [h, m] = raw.split(':').map(Number);
+					if (h > 8 || (h === 8 && m > 30)) longSet.add(lastL);
+				}
+			});
+			const longText = `Dienste >08:30h: ${[...longSet].sort((a, b) => a - b).join(', ')}`;
+
+			// Block 5: unterschiedliche Orte
+			const eq = new Set(['BBU', 'BUP', 'BBN', 'NSL']);
+			const locSet = new Set();
+			let currentId5 = null,
+				start5 = null;
+			rows.slice(1).concat([
+				[]
+			]).forEach((r, i, a) => {
+				if (/^\d+$/.test(r[2])) {
+					if (currentId5 != null && start5) {
+						const prev = a[i - 1] || [];
+						const end = prev[10] || '';
+						if (end && start5 !== end && !(eq.has(start5) && eq.has(end))) {
+							locSet.add(currentId5);
+						}
+					}
+					currentId5 = parseInt(r[2], 10);
+					start5 = r[6] || '';
+				} else if (!r.some(c => c != null && c !== '')) {
+					if (currentId5 != null && start5) {
+						const prev = a[i - 1] || [];
+						const end = prev[10] || '';
+						if (end && start5 !== end && !(eq.has(start5) && eq.has(end))) {
+							locSet.add(currentId5);
+						}
+					}
+					currentId5 = null;
+					start5 = null;
+				}
+			});
+			const locText = `Unterschiedliche Orte: ${[...locSet].sort((a, b) => a - b).join(', ')}`;
+
+			// Block 6: Dienstteilstücke >04:30h und Hinweis bei >06:00h
+			const reserveIdSet = new Set(reserveIds || []);
+
+			const segmentsById6 = new Map();
+			let currentId6 = null;
+
+			rows.slice(1).forEach(r => {
+				const idCell = r[2];
+
+				if (/^\d+$/.test(idCell)) {
+					currentId6 = parseInt(idCell, 10);
+				}
+
+				if (!r.some(c => c != null && c !== '')) {
+					currentId6 = null;
+					return;
+				}
+
+				if (currentId6 == null) return;
+
+				if (reserveIdSet.has(currentId6)) return;
+
+				const startStr = r[5];
+				const endStr = r[9];
+
+				if (
+					typeof startStr !== 'string' ||
+					typeof endStr !== 'string' ||
+					!/^[0-9]{1,2}:[0-9]{2}$/.test(startStr) ||
+					!/^[0-9]{1,2}:[0-9]{2}$/.test(endStr)
+				) {
+					return;
+				}
+
+				const [sh, sm] = startStr.split(':').map(Number);
+				const [eh, em] = endStr.split(':').map(Number);
+				const startMin = sh * 60 + sm;
+				const endMin = eh * 60 + em;
+
+				const courseRaw = r[4];
+				const course =
+					typeof courseRaw === 'string' && courseRaw.trim() ?
+					courseRaw.trim() :
+					'';
+
+				if (!segmentsById6.has(currentId6)) {
+					segmentsById6.set(currentId6, []);
+				}
+
+				segmentsById6.get(currentId6).push({
+					startMin,
+					endMin,
+					startStr,
+					endStr,
+					course
+				});
+			});
+
+			const over45ById = new Map();
+			const idsOver6 = new Set();
+
+			segmentsById6.forEach((segs, id) => {
+				if (!segs.length) return;
+
+				const lines = [];
+
+				for (let i = 0; i < segs.length; i++) {
+					const s = segs[i];
+					const dur = diffMinutes(s.startMin, s.endMin);
+					if (dur > 270) {
+						const durStr = formatDuration(dur);
+						const courseLabel = formatCourseLabel(s.course);
+						lines.push(
+							`  Einzelsegment ${s.startStr}–${s.endStr}${courseLabel} | Dauer ${durStr}`
+						);
+						if (dur > 360) {
+							idsOver6.add(id);
+						}
+					}
+				}
+
+				for (let i = 0; i < segs.length - 1; i++) {
+					const a = segs[i];
+					const b = segs[i + 1];
+
+					const gap = diffMinutes(a.endMin, b.startMin);
+					if (gap < 30) {
+						const durComb = diffMinutes(a.startMin, b.endMin);
+						if (durComb > 270) {
+							const durStr = formatDuration(durComb);
+
+							const courses = [a.course, b.course]
+								.filter(c => c && c.trim())
+								.map(c => c.trim());
+							const courseInfo = courses.length ?
+								` (${courses.join(' / ')})` :
+								'';
+
+							lines.push(
+								`  Kombiniert: ${a.startStr}–${a.endStr} und ${b.startStr}–${b.endStr}${courseInfo}` +
+								` | Pause ${gap} Min, Gesamtdauer ${durStr}`
+							);
+
+							if (durComb > 360) {
+								idsOver6.add(id);
+							}
+						}
+					}
+				}
+
+				if (lines.length) {
+					over45ById.set(id, lines);
+				}
+			});
+
+			let segTxt =
+				`Dienstteilstücke >04:30h (ohne Reserve-Dienste, inkl. kombinierter Teile mit Pause <30 Min): ` +
+				`${over45ById.size}\n`;
+
+			if (over45ById.size === 0) {
+				segTxt += '\nKeine relevanten Dienstteilstücke gefunden.';
+			} else {
+				segTxt += '\n';
+
+				[...over45ById.entries()]
+				.sort((a, b) => a[0] - b[0])
+					.forEach(([id, lines]) => {
+						segTxt += `ID ${id}:\n`;
+						lines.forEach(line => {
+							segTxt += line + '\n';
+						});
+
+						if (idsOver6.has(id)) {
+							segTxt +=
+								'  Hinweis: Bitte Fahrtafel prüfen ob 1/6 Dienst und Standzeiten ausreichen.\n';
+						}
+
+						segTxt += '\n';
+					});
+			}
+
+			const segmentText = segTxt.trim();
+
+			// Block 7: Schichtzuweisung inkl. separater Ausweisung geteilter Dienste (GF1, GF2, ...)
+			const isWeekendPlan = (zeitraum === 'Samstag' || zeitraum === 'Sonntag');
+
+			const shiftRules = isWeekendPlan ?
+				[
+					{ name: 'WE-F1', start: 170, end: 360 },
+					{ name: 'WE-F2', start: 360, end: 615 },
+					{ name: 'S1', start: 615, end: 779 },
+					{ name: 'S2', start: 780, end: 1159 },
+					{ name: 'N', start: 1160, end: 1440 }
+				] :
+				[
+					{ name: 'F1', start: 170, end: 270 },
+					{ name: 'F2', start: 271, end: 371 },
+					{ name: 'F3', start: 372, end: 614 },
+					{ name: 'S1', start: 615, end: 779 },
+					{ name: 'S2', start: 780, end: 1159 },
+					{ name: 'N', start: 1160, end: 1440 }
+				];
+
+			const shiftCount = {};
+			const sharedShiftCount = {};
+			const assignments = [];
+			let lastId7 = null;
+
+			const sharedIdSet = new Set([...ids].filter(id => isSharedService(id)));
+
+			rows.slice(1).forEach(r => {
+				if (/^[0-9]+$/.test(r[2])) {
+					lastId7 = parseInt(r[2], 10);
+				}
+
+				const tm = r[14];
+				if (lastId7 != null && typeof tm === 'string') {
+					const m = tm.match(/^(\d{1,2}):(\d{2})$/);
+					if (m) {
+						const mins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+						const rule = shiftRules.find(s => mins >= s.start && mins < s.end);
+						const baseName = rule ? rule.name : 'Unbekannte';
+
+						if (!assignments.some(a => a.id === lastId7)) {
+							const isShared = sharedIdSet.has(lastId7);
+							let finalName = baseName;
+
+							if (isShared && baseName !== 'Unbekannte') {
+								finalName = 'G' + baseName;
+							}
+
+							assignments.push({ id: lastId7, shift: finalName, isShared });
+
+							if (!isShared) {
+								shiftCount[baseName] = (shiftCount[baseName] || 0) + 1;
+							}
+
+							if (isShared && baseName !== 'Unbekannte') {
+								sharedShiftCount[finalName] = (sharedShiftCount[finalName] || 0) + 1;
+							}
+						}
+					}
+				}
+			});
+
+			let shText = isWeekendPlan ?
+				'Schichtzählung (nicht geteilte Dienste nach WE-F1, WE-F2, S1, S2, N):\n' :
+				'Schichtzählung (nicht geteilte Dienste nach F1, F2, F3, S1, S2, N):\n';
+
+			sortShiftNames(Object.keys(shiftCount))
+				.forEach(name => {
+					shText += `${name}: ${shiftCount[name]}\n`;
+				});
+
+			shText += '\nGeteilte Dienste mit separater Schichtlage (GF1, GF2, ... bzw. GWE-F1, ...):\n';
+			const sharedKeys = Object.keys(sharedShiftCount);
+			if (sharedKeys.length === 0) {
+				shText += 'Keine geteilten Dienste mit zugewiesener Schichtlage gefunden.\n';
+			} else {
+				sortShiftNames(sharedKeys)
+					.forEach(name => {
+						shText += `${name}: ${sharedShiftCount[name]}\n`;
+					});
+			}
+
+			shText += '\nZuteilung je Dienst-ID:\n';
+			assignments
+				.sort((a, b) => a.id - b.id)
+				.forEach(a => {
+					shText += `ID ${a.id}: ${a.shift}${a.isShared ? ' (geteilt)' : ''}\n`;
+				});
+
+			const shiftText = shText.trim();
+			const shiftHtml = buildShiftHtml(
+				isWeekendPlan
+					? 'Schichtzuweisung nach WE-F1, WE-F2, S1, S2, N'
+					: 'Schichtzuweisung nach F1, F2, F3, GF1, GF2, GF3, S1, S2, N',
+				assignments
+			);
+
+			// Block 8: Dienste nach Linie/Kurs (mit nächster Zeile derselben ID)
+			const idOccurrences = new Map();
+			let currentIdOcc = null;
+
+			rows.slice(1).forEach((r, idx) => {
+				if (/^\d+$/.test(r[2])) currentIdOcc = parseInt(r[2], 10);
+
+				const start = r[5];
+				const sLoc = r[6] || '';
+				const courseRaw = r[4];
+				const hasValidTime =
+					typeof start === 'string' && /^[0-9]{1,2}:[0-9]{2}$/.test(start);
+				const course =
+					typeof courseRaw === 'string' &&
+					/^[0-9]{1,2}\/\d{1,2}$/.test(courseRaw.trim()) ?
+					courseRaw.trim() :
+					'';
+
+				if (currentIdOcc != null && hasValidTime) {
+					if (!idOccurrences.has(currentIdOcc)) {
+						idOccurrences.set(currentIdOcc, []);
+					}
+					idOccurrences.get(currentIdOcc).push({
+						rowIndex: idx + 1,
+						start,
+						sLoc,
+						course
+					});
+				}
+			});
+
+			const routeMap2 = new Map();
+			let lastId8b = null;
+
+			rows.slice(1).forEach((r, idx) => {
+				if (/^[0-9]+$/.test(r[2])) lastId8b = parseInt(r[2], 10);
+				const keyRaw = r[4];
+
+				if (
+					typeof keyRaw === 'string' &&
+					/^[0-9]{1,2}\/\d{1,2}$/.test(keyRaw.trim())
+				) {
+					const key = keyRaw.trim();
+					const start = r[5] || '';
+					const end = r[9] || '';
+					const sLoc = r[6] || '';
+					const eLoc = r[10] || '';
+
+					if (!routeMap2.has(key)) routeMap2.set(key, []);
+					routeMap2.get(key).push({
+						id: lastId8b,
+						start,
+						end,
+						sLoc,
+						eLoc,
+						rowIndex: idx + 1
+					});
+				}
+			});
+
+			const sortedKeys = [...routeMap2.keys()].sort((a, b) => {
+				const [l1, c1] = a.split('/').map(Number);
+				const [l2, c2] = b.split('/').map(Number);
+				return l1 - l2 || c1 - c2;
+			});
+
+			let rt = 'Dienste nach Linie/Kurs:\n';
+			sortedKeys.forEach(key => {
+				rt += `${key}:\n`;
+
+				const entries = routeMap2
+					.get(key)
+					.filter(
+						entry =>
+						typeof entry.start === 'string' &&
+						/^[0-9]{1,2}:[0-9]{2}$/.test(entry.start)
+					)
+					.sort((a, b) => {
+						const [h1, m1] = a.start.split(':').map(Number);
+						const [h2, m2] = b.start.split(':').map(Number);
+						return h1 * 60 + m1 - (h2 * 60 + m2);
+					});
+
+				entries.forEach(entry => {
+					let line =
+						`  ID ${entry.id} ${entry.start} ${entry.sLoc}` +
+						` — ${entry.end} ${entry.eLoc}`;
+
+					const occList = idOccurrences.get(entry.id) || [];
+					const myPos = occList.findIndex(o => o.rowIndex === entry.rowIndex);
+
+					if (myPos !== -1 && myPos + 1 < occList.length) {
+						const next = occList[myPos + 1];
+						if (next.start && next.sLoc) {
+							const courseLabel = next.course ? ` ${next.course}` : '';
+							line += ` | ${next.start} ${next.sLoc}${courseLabel}`;
+						}
+					}
+
+					rt += line + '\n';
+				});
+
+				rt += '\n';
+			});
+
+			const routeText = rt.trim();
+
+			// Block 9: Pausen zwischen 30 und 120 Minuten
+			const segmentsById9 = new Map();
+			let currentId9 = null;
+			let seqCounter9 = 0;
+
+			rows.slice(1).forEach((r, idx) => {
+				const idCell = r[2];
+
+				if (/^\d+$/.test(idCell)) {
+					currentId9 = parseInt(idCell, 10);
+				}
+
+				if (!r.some(c => c != null && c !== '')) {
+					currentId9 = null;
+					return;
+				}
+
+				if (currentId9 == null) return;
+
+				// Geteilte Dienste ignorieren
+				if (sharedSet.has(currentId9)) return;
+
+				const startStr = r[5];
+				const endStr = r[9];
+				const startLocStr = r[6] || '';
+				const endLocStr = r[10] || '';
+				const courseRaw = r[4];
+				const course =
+					typeof courseRaw === 'string' && courseRaw.trim() ?
+					courseRaw.trim() :
+					'';
+
+				if (
+					typeof startStr !== 'string' ||
+					typeof endStr !== 'string' ||
+					!/^[0-9]{1,2}:[0-9]{2}$/.test(startStr) ||
+					!/^[0-9]{1,2}:[0-9]{2}$/.test(endStr)
+				) {
+					return;
+				}
+
+				const [sh, sm] = startStr.split(':').map(Number);
+				const [eh, em] = endStr.split(':').map(Number);
+				const startMin = sh * 60 + sm;
+				const endMin = eh * 60 + em;
+
+				if (!segmentsById9.has(currentId9)) {
+					segmentsById9.set(currentId9, []);
+				}
+
+				segmentsById9.get(currentId9).push({
+					id: currentId9,
+					seq: seqCounter9++,
+					startStr,
+					endStr,
+					startMin,
+					endMin,
+					startLoc: startLocStr,
+					endLoc: endLocStr,
+					course,
+					rowIndex: idx + 1
+				});
+			});
+
+			const pauses9 = [];
+
+			segmentsById9.forEach((segs, id) => {
+				if (segs.length < 2) return;
+
+				segs.sort((a, b) => a.seq - b.seq);
+
+				for (let i = 0; i < segs.length - 1; i++) {
+					const from = segs[i];
+					const to = segs[i + 1];
+
+					const gap = diffMinutesOverMidnight9(from.endMin, to.startMin);
+					if (gap == null) continue;
+
+					if (gap >= 30 && gap <= 120) {
+						let workDurMin = null;
+						let workDurStr = '';
+						let workInRange = false;
+						let workUnknown = false;
+
+						let workStartRowIndex = from.rowIndex;
+						let workEndRowIndex = from.rowIndex;
+
+						if (segs.length === 3 && i === 1) {
+							workStartRowIndex = segs[0].rowIndex;
+							workEndRowIndex = segs[1].rowIndex;
+						}
+
+						const rowStart = rows[workStartRowIndex] || null;
+						const rowEnd = rows[workEndRowIndex] || null;
+
+						if (rowStart && rowEnd) {
+							const workStartStr = rowStart[14];
+							const workEndStr = rowEnd[9];
+
+							const workStartMin = parseTimeToMin9(workStartStr);
+							const workEndMin = parseTimeToMin9(workEndStr);
+							const wDur = diffMinutesOverMidnight9(workStartMin, workEndMin);
+
+							if (wDur != null) {
+								workDurMin = wDur;
+								workDurStr = formatMinutesToHHMM9(wDur);
+								workInRange = wDur >= MIN_BV_9 && wDur <= MAX_BV_9;
+							} else {
+								workUnknown = true;
+							}
+						} else {
+							workUnknown = true;
+						}
+
+						pauses9.push({
+							id,
+							from,
+							to,
+							gap,
+							workDurMin,
+							workDurStr,
+							workInRange,
+							workUnknown
+						});
+					}
+				}
+			});
+
+			let pHtml = 'Pausen zwischen 30 und 120 Minuten:\n\n';
+
+			if (pauses9.length === 0) {
+				pHtml += 'Keine Pausen im Bereich 30–120 Minuten gefunden.';
+			} else {
+				const uniqueIds9 = [...new Set(pauses9.map(p => p.id))].sort(
+					(a, b) => a - b
+				);
+
+				uniqueIds9.forEach(id => {
+					const list = pauses9
+						.filter(p => p.id === id)
+						.sort((a, b) => a.from.startMin - b.from.startMin);
+
+					let blockText = `ID ${id}:\n`;
+
+					const hasBVConform = list.some(p => p.workInRange);
+					const anyWorkKnown = list.some(p => !p.workUnknown);
+
+					list.forEach(p => {
+						const from = p.from;
+						const to = p.to;
+
+						const fromCourse = formatCourse9(from.course);
+						const toCourse = formatCourse9(to.course);
+
+						const fromLoc = (from.endLoc || '').trim();
+						const toLoc = (to.startLoc || '').trim();
+						const pauseLoc = (fromLoc || toLoc).toUpperCase();
+
+						const isSpecial = SPECIAL_LOCATIONS9.includes(pauseLoc);
+						const requiredMin = isSpecial ? 39 : 33;
+						let pauseHint = '';
+
+						if (p.gap < requiredMin) {
+							pauseHint =
+								` (zu kurz, Mindestpause am Ort ${pauseLoc || 'unbekannt'}: ${requiredMin} min)`;
+						} else {
+							pauseHint =
+								` (Mindestpause erfüllt: ${requiredMin} min)`;
+						}
+
+						let workHint = '';
+						if (p.workUnknown) {
+							workHint =
+								' (Arbeitszeit vor Pause aus Spalte O/J nicht auswertbar)';
+						} else if (p.workInRange) {
+							workHint =
+								` (Arbeitszeit vor Pause ${p.workDurStr} – im Bereich 03:30 bis 04:30 Stunden)`;
+						} else {
+							workHint =
+								` (Arbeitszeit vor Pause ${p.workDurStr} – außerhalb 03:30 bis 04:30 Stunden)`;
+						}
+
+						blockText +=
+							`  Pause: ${from.endStr} ${fromLoc}${fromCourse}` +
+							` → ${to.startStr} ${toLoc}${toCourse}` +
+							` | ${p.gap} min` +
+							`${pauseHint}${workHint}\n`;
+					});
+
+					if (anyWorkKnown) {
+						if (hasBVConform) {
+							blockText +=
+								'  -> BV-Hinweis: Mindestens eine Pause mit vorangehender Arbeitszeit zwischen 03:30 und 04:30 Stunden vorhanden (BV-konform).\n\n';
+							pHtml += blockText;
+						} else {
+							blockText +=
+								'  -> BV-Hinweis: Keine Pause mit vorangehender Arbeitszeit zwischen 03:30 und 04:30 Stunden – Dienst nicht BV-konform.\n\n';
+							pHtml += `<div class="bv-not-ok">\n${blockText}</div>\n`;
+						}
+					} else {
+						blockText +=
+							'  -> BV-Hinweis: Arbeitszeiten vor Pausen (Spalte O/J) nicht auswertbar.\n\n';
+						pHtml += blockText;
+					}
+				});
+			}
+
+			const pauseHtml = pHtml.trim();
+
+			// Rückgabe
+			return {
+				planTypeText,
+				countText,
+				sharedText,
+				reserveText,
+				longText,
+				locText,
+				segmentText,
+				realDrivingTimeText: 'Für tabellarische Dienstpläne nicht verfügbar.',
+				shiftText,
+				shiftHtml,
+				routeText,
+				pauseHtml,
+				planHinweis
+			};
+		}
+
+		/* --- Formatdetektor --- */
+		function detectWorkbookFormat(wb) {
+			// Wagenkarte: erstes Sheet prüfen, ob B1 "Dienst-Nr.:" enthält
+			const firstSheet = wb.Sheets[wb.SheetNames[0]];
+			if (!firstSheet) return 'tabular';
+
+			const b1 = firstSheet['B1'];
+			if (b1 && typeof b1.v === 'string' && b1.v.trim() === 'Dienst-Nr.:') {
+				return 'wagenkarte';
+			}
+
+			return 'tabular';
+		}
+
+		function getWagenkarteCellValue(cell) {
+			if (!cell) return '';
+			if (typeof cell.w === 'string' && cell.w.trim()) return cell.w.trim();
+			if (cell.v == null) return '';
+			return String(cell.v).trim();
+		}
+
+		function wagenkarteRefToPos(ref) {
+			const m = String(ref).match(/^([A-Z]+)(\d+)$/);
+			if (!m) return null;
+			let col = 0;
+			for (let i = 0; i < m[1].length; i++) {
+				col = col * 26 + (m[1].charCodeAt(i) - 64);
+			}
+			return { col, row: parseInt(m[2], 10) };
+		}
+
+		function getWagenkarteRegion(col) {
+			if (col >= 2 && col <= 8) return 0;
+			if (col >= 10 && col <= 16) return 1;
+			if (col >= 18 && col <= 23) return 2;
+			return null;
+		}
+
+		function buildWagenkarteEntries(ws) {
+			return Object.keys(ws)
+				.filter(addr => !addr.startsWith('!'))
+				.map(addr => {
+					const pos = wagenkarteRefToPos(addr);
+					if (!pos) return null;
+					const text = getWagenkarteCellValue(ws[addr]);
+					if (!text) return null;
+					const region = getWagenkarteRegion(pos.col);
+					return region == null ? null : {
+						addr,
+						row: pos.row,
+						col: pos.col,
+						region,
+						text
+					};
+				})
+				.filter(Boolean)
+				.sort((a, b) => a.row - b.row || a.region - b.region || a.col - b.col);
+		}
+
+		function detectWagenkartePages(entries) {
+			const entriesByRow = new Map();
+			entries.forEach(entry => {
+				if (!entriesByRow.has(entry.row)) entriesByRow.set(entry.row, []);
+				entriesByRow.get(entry.row).push(entry);
+			});
+
+			const headerRows = Array.from(entriesByRow.keys())
+				.filter(row => {
+					const rowTexts = new Set((entriesByRow.get(row) || []).map(entry => entry.text));
+					const row2Texts = new Set((entriesByRow.get(row + 2) || []).map(entry => entry.text));
+					const row3Texts = new Set((entriesByRow.get(row + 3) || []).map(entry => entry.text));
+					const row4Texts = new Set((entriesByRow.get(row + 4) || []).map(entry => entry.text));
+
+					return rowTexts.has('Dienst-Nr.:') &&
+						row2Texts.has('Gültig ab:') &&
+						row3Texts.has('Dienstbeginn:') &&
+						row4Texts.has('Dienstende:');
+				})
+				.sort((a, b) => a - b);
+
+			const maxRow = entries.reduce((max, entry) => Math.max(max, entry.row), 0);
+			if (!headerRows.length) {
+				return [{ index: 0, startRow: 1, endRow: maxRow }];
+			}
+
+			return headerRows.map((startRow, index) => ({
+				index,
+				startRow,
+				endRow: (headerRows[index + 1] || (maxRow + 1)) - 1
+			}));
+		}
+
+		function parseWagenkarteActivity(text) {
+			const rawText = String(text || '').trim();
+			if (!rawText) return null;
+
+			const timeActivityPatterns = [
+				{ typ: 'Vorbereiten', regex: /^Vorbereiten\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/i },
+				{ typ: 'Nachbereiten', regex: /^Nachbereiten\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/i },
+				{ typ: 'Bereitstellungszeit', regex: /^Bereitstellungszeit\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/i },
+				{ typ: 'Wendezeit', regex: /^Wendezeit\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/i },
+				{ typ: 'Dienstbereitschaft', regex: /^Dienstbereitschaft\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/i },
+				{ typ: 'unbezahlte Pause', regex: /^unbezahlte Pause\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/i },
+				{ typ: 'geteilter Dienst', regex: /^Geteilter Dienst von\s+(\d{1,2}:\d{2})\s+bis\s+(\d{1,2}:\d{2})$/i }
+			];
+
+			for (const pattern of timeActivityPatterns) {
+				const match = rawText.match(pattern.regex);
+				if (!match) continue;
+				const start = match[1];
+				const ende = match[2];
+				const startMin = parseTimeToMinutes(start);
+				const endMin = parseTimeToMinutes(ende);
+				return {
+					typ: pattern.typ,
+					start,
+					ende,
+					dauerMin: (startMin != null && endMin != null) ? diffMinutes(startMin, endMin) : null,
+					rawText
+				};
+			}
+
+			if (/^Leerfahrt$/i.test(rawText)) {
+				return { typ: 'Leerfahrt', rawText };
+			}
+			if (/^Umlauf$/i.test(rawText)) {
+				return { typ: 'Umlauf', rawText };
+			}
+			if (/^Linie\s*\/\s*Fahrt-Nr\.$/i.test(rawText)) {
+				return { typ: 'Linie / Fahrt-Nr.', rawText };
+			}
+
+			return null;
+		}
+
+		function parseWagenkarteLineCourse(text) {
+			const match = String(text || '').trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+			if (!match) return null;
+			return {
+				linie: match[1],
+				kurs: match[2]
+			};
+		}
+
+		function isWagenkarteStopNoise(text) {
+			if (!text) return true;
+			if (/^\d{1,2}:\d{2}$/.test(text)) return true;
+			if (/^(ab|an)$/i.test(text)) return true;
+			if (parseWagenkarteActivity(text)) return true;
+			if (parseWagenkarteLineCourse(text)) return true;
+			if (/^(Zusteiger aus:|Umsteiger in:)$/i.test(text)) return true;
+			if (/^Linie:\s*\d+/i.test(text)) return true;
+			if (/^(Dienst-Nr\.:|Gültig ab:|Schichtdauer:|Dienstbeginn:|Bezahlte Zeit:|Dienstende:|Lenkzeit)$/i.test(text)) return true;
+			return false;
+		}
+
+		function parseWagenkarteStopRow(entries) {
+			if (!entries || entries.length === 0) return null;
+			const sorted = entries.slice().sort((a, b) => a.col - b.col);
+			const typeEntry = sorted.find(entry => /^(ab|an)$/i.test(entry.text));
+			const timeEntry = sorted.find(entry => /^\d{1,2}:\d{2}$/.test(entry.text));
+			const ortEntry = sorted.find(entry => !isWagenkarteStopNoise(entry.text));
+
+			if (!timeEntry || !ortEntry) return null;
+			return {
+				ort: ortEntry.text,
+				zeit: timeEntry.text,
+				typ: typeEntry ? typeEntry.text.toLowerCase() : 'durch'
+			};
+		}
+
+		function finalizeWagenkarteTrip(trip) {
+			if (!trip || !Array.isArray(trip.stops) || trip.stops.length === 0) return null;
+			const firstStop = trip.stops[0];
+			const lastStop = trip.stops[trip.stops.length - 1];
+			return {
+				typ: trip.typ,
+				linie: trip.linie || '',
+				kurs: trip.kurs || '',
+				stops: trip.stops.slice(),
+				startOrt: firstStop.ort,
+				endOrt: lastStop.ort,
+				startZeit: firstStop.zeit,
+				endZeit: lastStop.zeit,
+				pageIndex: trip.pageIndex != null ? trip.pageIndex : null,
+				region: trip.region != null ? trip.region : null,
+				rowStart: trip.startRow != null ? trip.startRow : null,
+				rowEnd: trip.lastStopRow != null ? trip.lastStopRow : null
+			};
+		}
+
+		function getWagenkarteTripStartMin(trip) {
+			return parseTimeToMinutes(trip && trip.startZeit ? trip.startZeit : '');
+		}
+
+		function compareWagenkarteTrips(a, b) {
+			const aMin = getWagenkarteTripStartMin(a);
+			const bMin = getWagenkarteTripStartMin(b);
+			if (aMin != null && bMin != null && aMin !== bMin) return aMin - bMin;
+			if (aMin != null && bMin == null) return -1;
+			if (aMin == null && bMin != null) return 1;
+			return 0;
+		}
+
+		function buildWagenkarteLocText(dienste) {
+			const differentServices = dienste
+				.map(dienst => {
+					const fahrten = (dienst.fahrten || []).filter(fahrt => fahrt.startOrt && fahrt.endOrt);
+					if (!fahrten.length) return null;
+
+					const firstTrip = fahrten[0];
+					const lastTrip = fahrten[fahrten.length - 1];
+					if (!firstTrip.startOrt || !lastTrip.endOrt) return null;
+					if (firstTrip.startOrt === lastTrip.endOrt) return null;
+
+					return {
+						id: parseInt(dienst.dienstNr, 10),
+						dienstNr: dienst.dienstNr,
+						startOrt: firstTrip.startOrt,
+						endOrt: lastTrip.endOrt
+					};
+				})
+				.filter(Boolean)
+				.sort((a, b) => a.id - b.id);
+
+			if (!differentServices.length) {
+				return 'Keine Dienste mit unterschiedlichen Start- und End-Orten gefunden.';
+			}
+
+			let text = 'Dienste mit unterschiedlichen Start- und End-Orten:\n';
+			differentServices.forEach(entry => {
+				text += `ID ${entry.dienstNr}: ${entry.startOrt} → ${entry.endOrt}\n`;
+			});
+			return text.trim();
+		}
+
+		function buildWagenkarteRouteText(dienste) {
+			const routeMap = new Map();
+
+			dienste.forEach(dienst => {
+				(dienst.fahrten || []).forEach(fahrt => {
+					if (!fahrt || !fahrt.linie || !fahrt.kurs) return;
+					const key = `${fahrt.linie}/${fahrt.kurs}`;
+					if (!routeMap.has(key)) routeMap.set(key, []);
+					routeMap.get(key).push({
+						dienstNr: dienst.dienstNr,
+						startZeit: fahrt.startZeit || '',
+						endZeit: fahrt.endZeit || '',
+						startOrt: fahrt.startOrt || '',
+						endOrt: fahrt.endOrt || ''
+					});
+				});
+			});
+
+			const sortedKeys = [...routeMap.keys()].sort((a, b) => {
+				const [lineA, courseA] = a.split('/').map(Number);
+				const [lineB, courseB] = b.split('/').map(Number);
+				return lineA - lineB || courseA - courseB;
+			});
+
+			if (!sortedKeys.length) {
+				return 'Dienste nach Linie/Kurs:\nKeine Linien/Kurse aus Wagenkarten erkannt.';
+			}
+
+			let text = 'Dienste nach Linie/Kurs:\n\n';
+			sortedKeys.forEach(key => {
+				text += `${key}:\n`;
+				const entries = routeMap.get(key).slice().sort((a, b) => {
+					const aMin = parseTimeToMinutes(a.startZeit);
+					const bMin = parseTimeToMinutes(b.startZeit);
+					if (aMin != null && bMin != null && aMin !== bMin) return aMin - bMin;
+					if (aMin != null && bMin == null) return -1;
+					if (aMin == null && bMin != null) return 1;
+					return parseInt(a.dienstNr, 10) - parseInt(b.dienstNr, 10);
+				});
+
+				entries.forEach(entry => {
+					text += `ID ${entry.dienstNr} ${entry.startZeit} ${entry.startOrt} — ${entry.endZeit} ${entry.endOrt}\n`;
+				});
+				text += '\n';
+			});
+
+			return text.trim();
+		}
+
+		function buildWagenkarteRealDrivingTimeText(dienste) {
+			if (!dienste.length) {
+				return 'Keine Wagenkarten-Dienste erkannt.';
+			}
+
+			const sortedDienste = dienste.slice().sort((a, b) => parseInt(a.dienstNr, 10) - parseInt(b.dienstNr, 10));
+			let text =
+				'Lenkzeit real vor/nach Pause laut Wagenkarte:\n\n' +
+				'Hinweis:\n' +
+				'Die berechnete Lenkzeit vor/nach Pause zählt nur Linienfahrten und Leerfahrten.\n' +
+				'Wendezeit, Bereitstellungszeit, Vor-/Nachbereitung, Dienstbereitschaft sowie Pausen/Dienstunterbrechungen werden nicht in diese berechnete Fahr-/Leerfahrzeit eingerechnet.\n' +
+				'Die offizielle Lenkzeit laut Wagenkarte aus L5 wird separat angezeigt.\n\n';
+
+			sortedDienste.forEach(dienst => {
+				const analyse = dienst.lenkzeitAnalyse || {};
+				const zusatz = analyse.zusatzzeiten || {};
+				text += `ID ${dienst.dienstNr}:\n`;
+				text += `Lenkzeit gesamt laut Wagenkarte: ${dienst.lenkzeitKopf || '-'}\n`;
+
+				if (analyse.relevantePause && analyse.lenkzeitVorPauseMin != null && analyse.lenkzeitNachPauseMin != null) {
+					text += `Lenkzeit vor Pause/Dienstunterbrechung: ${formatDuration(analyse.lenkzeitVorPauseMin)}\n`;
+					text += `Lenkzeit nach Pause/Dienstunterbrechung: ${formatDuration(analyse.lenkzeitNachPauseMin)}\n`;
+					text += `Relevante Unterbrechung: ${analyse.relevantePause.typ} ${analyse.relevantePause.start}\u2013${analyse.relevantePause.end} (${formatDuration(analyse.relevantePause.dauerMin || 0)})\n`;
+				} else {
+					text += 'Keine relevante Pause/Dienstunterbrechung gefunden.\n';
+				}
+
+				text += `Max. Lenkzeitblock: ${formatDuration(analyse.maxBlockMin || 0)}\n`;
+				text += `Prüfung 04:30h: ${(analyse.pruefung450Ok === false) ? 'ÜBERSCHREITUNG' : 'OK'}\n`;
+				text += 'Zusätzlich erkannte Zeiten, nicht in berechneter Fahr-/Leerfahrzeit enthalten:\n';
+				text += `Wendezeit: ${formatDuration(zusatz.wendezeitMin || 0)}\n`;
+				text += `Bereitstellungszeit: ${formatDuration(zusatz.bereitstellungszeitMin || 0)}\n`;
+				text += `Vorbereiten: ${formatDuration(zusatz.vorbereitenMin || 0)}\n`;
+				text += `Nachbereiten: ${formatDuration(zusatz.nachbereitenMin || 0)}\n`;
+				text += `Dienstbereitschaft: ${formatDuration(zusatz.dienstbereitschaftMin || 0)}\n`;
+				text += `Arbeitsnahe Zusatzzeiten gesamt: ${formatDuration(analyse.zusatzzeitenArbeitsnahMin || 0)}\n`;
+				text += `Pausen/Dienstunterbrechungen: ${formatDuration((zusatz.unbezahltePauseMin || 0) + (zusatz.geteilterDienstMin || 0))}\n`;
+
+				if (analyse.warnHinweis) {
+					text += `${analyse.warnHinweis}\n`;
+				}
+
+				text += '\n';
+			});
+
+			return text.trim();
+		}
+
+		function buildWagenkartePauseInfoText(pause) {
+			if (!pause) return '';
+			if (pause.start && pause.end && pause.dauerMin != null) {
+				return `${pause.typ} ${pause.start}\u2013${pause.end} (${formatDuration(pause.dauerMin)})`;
+			}
+			return pause.typ || '';
+		}
+
+		function escapeHtml(text) {
+			return String(text || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+
+		const SHIFT_DISPLAY_ORDER = ['F1', 'F2', 'F3', 'GF1', 'GF2', 'GF3', 'S1', 'S2', 'N'];
+
+		function getShiftSortRank(name) {
+			const idx = SHIFT_DISPLAY_ORDER.indexOf(name);
+			return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+		}
+
+		function sortShiftNames(names) {
+			return names.slice().sort((a, b) => {
+				const rankA = getShiftSortRank(a);
+				const rankB = getShiftSortRank(b);
+				if (rankA !== rankB) return rankA - rankB;
+				return a.localeCompare(b, 'de');
+			});
+		}
+
+		function getShiftCssClass(name) {
+			const label = String(name || '');
+			if (/^GF1$|^GWE-F1$/i.test(label)) return 'shift-gf1';
+			if (/^GF2$|^GWE-F2$/i.test(label)) return 'shift-gf2';
+			if (/^GF3$/i.test(label)) return 'shift-gf3';
+			if (/^F1$|^WE-F1$/i.test(label)) return 'shift-f1';
+			if (/^F2$|^WE-F2$/i.test(label)) return 'shift-f2';
+			if (/^F3$/i.test(label)) return 'shift-f3';
+			if (/^S1$/i.test(label)) return 'shift-s1';
+			if (/^S2$/i.test(label)) return 'shift-s2';
+			if (/^N$/i.test(label)) return 'shift-n';
+			return '';
+		}
+
+		function buildShiftHtml(sectionTitle, assignments) {
+			const grouped = new Map();
+			(assignments || []).forEach(entry => {
+				const key = entry.shift || 'Unbekannte';
+				if (!grouped.has(key)) grouped.set(key, []);
+				grouped.get(key).push(entry);
+			});
+
+			let html = `<div>${escapeHtml(sectionTitle || 'Schichtzuweisung')}</div><br>`;
+			const shiftNames = sortShiftNames([...grouped.keys()]);
+			shiftNames.forEach(name => {
+				const entries = grouped.get(name).slice().sort((a, b) => a.id - b.id);
+				const cssClass = getShiftCssClass(name);
+				html += '<div class="shift-group">';
+				html += `<div class="shift-group-title${cssClass ? ` ${cssClass}` : ''}">${escapeHtml(name)} (${entries.length})</div>`;
+				html += '<div class="shift-group-lines">';
+				entries.forEach(entry => {
+					html += `<div>${escapeHtml(`ID ${entry.id}: ${entry.shift}${entry.isShared ? ' (geteilt)' : ''}`)}</div>`;
+				});
+				html += '</div></div>';
+			});
+			return html.trim();
+		}
+
+		function buildWagenkartePausenAnalyse(dienst) {
+			const relevantePausen = (dienst.aktivitaeten || [])
+				.filter(activity =>
+					(activity.typ === 'unbezahlte Pause' || activity.typ === 'geteilter Dienst') &&
+					activity.start &&
+					activity.ende &&
+					typeof activity.dauerMin === 'number' &&
+					activity.dauerMin >= 30
+				)
+				.map(activity => ({
+					typ: activity.typ,
+					start: activity.start,
+					ende: activity.ende,
+					dauerMin: activity.dauerMin,
+					rawText: activity.rawText || '',
+					row: activity.row != null ? activity.row : null,
+					region: activity.region != null ? activity.region : null,
+					pageIndex: activity.pageIndex != null ? activity.pageIndex : null
+				}))
+				.sort((a, b) => {
+					const aMin = parseTimeToMinutes(a.start);
+					const bMin = parseTimeToMinutes(b.start);
+					if (aMin != null && bMin != null) return aMin - bMin;
+					if (aMin != null) return -1;
+					if (bMin != null) return 1;
+					return 0;
+				});
+
+			let previousRelevantPauseEnd = dienst.dienstbeginn || '';
+			const pausen = relevantePausen.map((pause, index) => {
+				const arbeitszeitStart = index === 0 ? (dienst.dienstbeginn || '') : previousRelevantPauseEnd;
+				const arbeitszeitVorPauseMin = diffMinutes(
+					parseTimeToMinutes(arbeitszeitStart),
+					parseTimeToMinutes(pause.start)
+				);
+				const bvArbeitszeitOk = typeof arbeitszeitVorPauseMin === 'number' &&
+					arbeitszeitVorPauseMin >= 210 &&
+					arbeitszeitVorPauseMin <= 270;
+				previousRelevantPauseEnd = pause.ende;
+
+				return {
+					typ: pause.typ,
+					start: pause.start,
+					ende: pause.ende,
+					dauerMin: pause.dauerMin,
+					arbeitszeitVorPauseMin,
+					arbeitszeitVorPauseText: arbeitszeitVorPauseMin != null ? formatDuration(arbeitszeitVorPauseMin) : '',
+					bvArbeitszeitOk,
+					rawText: pause.rawText || '',
+					row: pause.row,
+					region: pause.region,
+					pageIndex: pause.pageIndex
+				};
+			});
+
+			const hatBvKonformePause = pausen.some(pause => pause.bvArbeitszeitOk);
+
+			return {
+				pausen,
+				hatBvKonformePause,
+				nichtBvKonform: pausen.length > 0 && !hatBvKonformePause
+			};
+		}
+
+		function buildWagenkartePauseHtml(dienste) {
+			const analyses = dienste
+				.filter(dienst => dienst.wagenkartePausenAnalyse)
+				.map(dienst => ({ dienst, analyse: dienst.wagenkartePausenAnalyse }))
+				.sort((a, b) => parseInt(a.dienst.dienstNr, 10) - parseInt(b.dienst.dienstNr, 10));
+
+			let html = '<div>Pausen und Dienstunterbrechungen (Wagenkarten):</div><br>';
+
+			const normalePausen = analyses
+				.map(({ dienst, analyse }) => ({
+					dienst,
+					pausen: analyse.pausen.filter(pause => pause.dauerMin >= 30 && pause.dauerMin <= 120)
+				}))
+				.filter(entry => entry.pausen.length > 0);
+
+			html += '<div>Normale Pausen 30–120 Minuten:</div>';
+			if (!normalePausen.length) {
+				html += '<div>Keine normalen Pausen 30–120 Minuten gefunden.</div><br>';
+			} else {
+				html += '<br>';
+				normalePausen.forEach(({ dienst, pausen }) => {
+					const analyse = dienst.wagenkartePausenAnalyse;
+					let blockText = `ID ${dienst.dienstNr}:\n`;
+					pausen.forEach(pause => {
+						blockText += `Pause ${pause.start}\u2013${pause.ende} | ${pause.dauerMin} min\n`;
+						blockText += `Arbeitszeit vor Pause: ${pause.arbeitszeitVorPauseText || '-'}\n`;
+						blockText += `BV-Hinweis: ${pause.bvArbeitszeitOk ? 'OK' : 'nicht OK'}\n`;
+					});
+					blockText += analyse.hatBvKonformePause
+						? 'BV-konform nach dieser Prüfung\n'
+						: 'Nicht BV-konform nach dieser Prüfung\n';
+					const escaped = escapeHtml(blockText);
+					html += analyse.nichtBvKonform
+						? `<div class="bv-not-ok">${escaped.replace(/\n/g, '<br>')}</div><br>`
+						: `<div>${escaped.replace(/\n/g, '<br>')}</div><br>`;
+				});
+			}
+
+			const geteilteUnterbrechungen = analyses
+				.map(({ dienst, analyse }) => ({
+					dienst,
+					pausen: analyse.pausen.filter(pause => pause.typ === 'geteilter Dienst' && pause.dauerMin > 120)
+				}))
+				.filter(entry => entry.pausen.length > 0);
+
+			html += '<div>Geteilte Dienstunterbrechungen &gt;120 Minuten:</div>';
+			if (!geteilteUnterbrechungen.length) {
+				html += '<div>Keine geteilten Dienstunterbrechungen &gt;120 Minuten gefunden.</div>';
+			} else {
+				html += '<br>';
+				geteilteUnterbrechungen.forEach(({ dienst, pausen }) => {
+					const analyse = dienst.wagenkartePausenAnalyse;
+					let blockText = `ID ${dienst.dienstNr}:\n`;
+					pausen.forEach(pause => {
+						blockText += `Geteilter Dienst ${pause.start}\u2013${pause.ende} | ${formatDuration(pause.dauerMin)}\n`;
+						blockText += `Arbeitszeit vor Unterbrechung: ${pause.arbeitszeitVorPauseText || '-'}\n`;
+						blockText += pause.bvArbeitszeitOk
+							? 'BV-Hinweis: OK\n'
+							: 'BV-Hinweis: Keine Pause mit vorangehender Arbeitszeit zwischen 03:30 und 04:30 Stunden.\n';
+					});
+					blockText += analyse.hatBvKonformePause
+						? 'BV-konform nach dieser Prüfung\n'
+						: 'Nicht BV-konform nach dieser Prüfung\n';
+					const escaped = escapeHtml(blockText);
+					html += analyse.nichtBvKonform
+						? `<div class="bv-not-ok">${escaped.replace(/\n/g, '<br>')}</div><br>`
+						: `<div>${escaped.replace(/\n/g, '<br>')}</div><br>`;
+				});
+			}
+
+			return html.trim();
+		}
+
+		function buildWagenkarteDienstteilAnalyse(dienst) {
+			const pauseTypes = new Set(['unbezahlte Pause', 'geteilter Dienst']);
+			const workActivityTypes = new Set([
+				'Vorbereiten',
+				'Nachbereiten',
+				'Wendezeit',
+				'Bereitstellungszeit',
+				'Dienstbereitschaft'
+			]);
+
+			const explicitPauses = (dienst.aktivitaeten || [])
+				.filter(activity =>
+					pauseTypes.has(activity.typ) &&
+					typeof activity.dauerMin === 'number' &&
+					activity.dauerMin >= 30 &&
+					activity.start &&
+					activity.ende
+				)
+				.map(activity => ({
+					typ: activity.typ,
+					start: activity.start,
+					end: activity.ende,
+					dauerMin: activity.dauerMin,
+					rawText: activity.rawText || ''
+				}))
+				.sort((a, b) => parseTimeToMinutes(a.start) - parseTimeToMinutes(b.start));
+
+			const workIntervals = [];
+			(dienst.aktivitaeten || []).forEach(activity => {
+				if (!workActivityTypes.has(activity.typ)) return;
+				if (!activity.start || !activity.ende) return;
+				const startMin = parseTimeToMinutes(activity.start);
+				const endMin = parseTimeToMinutes(activity.ende);
+				if (startMin == null || endMin == null) return;
+				workIntervals.push({
+					typ: activity.typ,
+					startZeit: activity.start,
+					endZeit: activity.ende,
+					startMin,
+					endMin
+				});
+			});
+
+			(dienst.fahrtenSortiert || dienst.fahrten || []).forEach(fahrt => {
+				if (!fahrt.startZeit || !fahrt.endZeit) return;
+				const startMin = parseTimeToMinutes(fahrt.startZeit);
+				const endMin = parseTimeToMinutes(fahrt.endZeit);
+				if (startMin == null || endMin == null) return;
+				workIntervals.push({
+					typ: fahrt.typ,
+					linie: fahrt.linie || '',
+					kurs: fahrt.kurs || '',
+					startZeit: fahrt.startZeit,
+					endZeit: fahrt.endZeit,
+					startMin,
+					endMin
+				});
+			});
+
+			workIntervals.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+			const dienstStartMin = parseTimeToMinutes(dienst.dienstbeginn || '');
+			const dienstEndMin = parseTimeToMinutes(dienst.dienstende || '');
+			const initialTeile = [];
+
+			if (dienstStartMin != null && dienstEndMin != null) {
+				let currentStartMin = dienstStartMin;
+				let trennungVorher = null;
+
+				explicitPauses.forEach(pause => {
+					const pauseStartMin = parseTimeToMinutes(pause.start);
+					const pauseEndMin = parseTimeToMinutes(pause.end);
+					if (pauseStartMin == null || pauseEndMin == null) return;
+
+					initialTeile.push({
+						startZeit: formatDuration(currentStartMin),
+						endZeit: pause.start,
+						dauerMin: diffMinutes(currentStartMin, pauseStartMin),
+						trennungVorher,
+						trennungNachher: pause
+					});
+					currentStartMin = pauseEndMin;
+					trennungVorher = pause;
+				});
+
+				initialTeile.push({
+					startZeit: formatDuration(currentStartMin),
+					endZeit: formatDuration(dienstEndMin),
+					dauerMin: diffMinutes(currentStartMin, dienstEndMin),
+					trennungVorher,
+					trennungNachher: null
+				});
+			}
+
+			const teile = [];
+			initialTeile.forEach(teil => {
+				const teilStartMin = parseTimeToMinutes(teil.startZeit);
+				const teilEndMin = parseTimeToMinutes(teil.endZeit);
+				if (teilStartMin == null || teilEndMin == null) return;
+
+				const teilIntervals = workIntervals.filter(interval =>
+					interval.startMin >= teilStartMin && interval.endMin <= teilEndMin
+				);
+
+				if (!teilIntervals.length) {
+					teile.push(teil);
+					return;
+				}
+
+				let currentTeil = { ...teil };
+				for (let i = 0; i < teilIntervals.length - 1; i++) {
+					const current = teilIntervals[i];
+					const next = teilIntervals[i + 1];
+					const gapMin = diffMinutes(current.endMin, next.startMin);
+					const nextHasWork = teilIntervals.slice(i + 1).length > 0;
+					const nextTouchesExplicitPause = explicitPauses.some(pause => pause.start === next.endZeit);
+
+					if (gapMin >= 30 && nextHasWork && !(next.typ === 'Nachbereiten' && nextTouchesExplicitPause)) {
+						currentTeil.endZeit = current.endZeit;
+						currentTeil.dauerMin = diffMinutes(parseTimeToMinutes(currentTeil.startZeit), current.endMin);
+						currentTeil.trennungNachher = {
+							typ: 'blockpause',
+							start: current.endZeit,
+							end: next.startZeit,
+							dauerMin: gapMin,
+							rawText: 'Automatisch aus Zeitlücke >=30 Min erkannt'
+						};
+						teile.push(currentTeil);
+
+						currentTeil = {
+							startZeit: next.startZeit,
+							endZeit: teil.endZeit,
+							dauerMin: diffMinutes(next.startMin, teilEndMin),
+							trennungVorher: currentTeil.trennungNachher,
+							trennungNachher: teil.trennungNachher
+						};
+					}
+				}
+
+				teile.push(currentTeil);
+			});
+
+			const enrichedTeile = teile.map(teil => {
+				const teilStartMin = parseTimeToMinutes(teil.startZeit);
+				const teilEndMin = parseTimeToMinutes(teil.endZeit);
+				const fahrtenImZeitraum = (dienst.fahrtenSortiert || dienst.fahrten || []).filter(fahrt => {
+					const startMin = parseTimeToMinutes(fahrt.startZeit || '');
+					const endMin = parseTimeToMinutes(fahrt.endZeit || '');
+					return startMin != null && endMin != null && teilStartMin != null && teilEndMin != null &&
+						startMin >= teilStartMin && endMin <= teilEndMin;
+				});
+
+				return {
+					...teil,
+					fahrten: fahrtenImZeitraum
+				};
+			});
+
+			const maxTeilMin = enrichedTeile.reduce((max, teil) => Math.max(max, teil.dauerMin || 0), 0);
+			const teileUeber450 = enrichedTeile.filter(teil => (teil.dauerMin || 0) > 270);
+
+			return {
+				teile: enrichedTeile,
+				maxTeilMin,
+				teileUeber450
+			};
+		}
+
+		function buildWagenkarteSegmentText(dienste) {
+			const withAnalyse = dienste
+				.filter(dienst => dienst.dienstteilAnalyse)
+				.sort((a, b) => parseInt(a.dienstNr, 10) - parseInt(b.dienstNr, 10));
+			const over = withAnalyse.flatMap(dienst =>
+				(dienst.dienstteilAnalyse.teileUeber450 || []).map(teil => ({ dienst, teil }))
+			);
+
+			if (!over.length) {
+				return 'Dienstteilstücke >04:30h (Wagenkarten, Arbeitszeit vor/nach Pause):\nKeine Dienstteilstücke >04:30h gefunden.';
+			}
+
+			let text = 'Dienstteilstücke >04:30h (Wagenkarten, Arbeitszeit vor/nach Pause):\n\n';
+			over.forEach(({ dienst, teil }) => {
+				text += `ID ${dienst.dienstNr}:\n`;
+				const fahrtLabels = (teil.fahrten || []).map(fahrt => {
+					const base = `${fahrt.linie || '-'}/${fahrt.kurs || '-'}`;
+					return fahrt.typ === 'leerfahrt' ? `${base} (Leerfahrt)` : base;
+				});
+				text += `Teil ${teil.startZeit}\u2013${teil.endZeit} | Dauer ${formatDuration(teil.dauerMin || 0)}`;
+				if (fahrtLabels.length) {
+					text += ` | Linien/Kurse im Zeitraum: ${fahrtLabels.join(', ')}`;
+				}
+				text += '\n';
+				if (teil.trennungVorher) {
+					text += `Trennung: ${buildWagenkartePauseInfoText(teil.trennungVorher)}\n`;
+				}
+				text += '\n';
+			});
+			return text.trim();
+		}
+
+		function buildWagenkarteZeitGrenzenDiagnose(dienst) {
+			const dienstStartMin = parseTimeToMinutes(dienst.dienstbeginn || '');
+			const dienstEndMin = parseTimeToMinutes(dienst.dienstende || '');
+			const ausserhalbDienst = [];
+
+			function liesOutside(start, end) {
+				if (dienstStartMin == null || dienstEndMin == null) return false;
+				const startMin = parseTimeToMinutes(start || '');
+				const endMin = parseTimeToMinutes(end || '');
+				if (startMin == null && endMin == null) return false;
+				if (startMin != null && startMin < dienstStartMin) return true;
+				if (endMin != null && endMin > dienstEndMin) return true;
+				return false;
+			}
+
+			(dienst.aktivitaeten || []).forEach(activity => {
+				if (!liesOutside(activity.start, activity.ende)) return;
+				ausserhalbDienst.push({
+					art: 'aktivitaet',
+					typ: activity.typ,
+					start: activity.start || '',
+					ende: activity.ende || '',
+					rawText: activity.rawText || '',
+					addr: activity.addr || '',
+					row: activity.row != null ? activity.row : null,
+					region: activity.region != null ? activity.region : null,
+					pageIndex: activity.pageIndex != null ? activity.pageIndex : null
+				});
+			});
+
+			(dienst.fahrten || []).forEach(fahrt => {
+				if (!liesOutside(fahrt.startZeit, fahrt.endZeit)) return;
+				ausserhalbDienst.push({
+					art: 'fahrt',
+					typ: fahrt.typ,
+					linie: fahrt.linie || '',
+					kurs: fahrt.kurs || '',
+					start: fahrt.startZeit || '',
+					ende: fahrt.endZeit || '',
+					startOrt: fahrt.startOrt || '',
+					endOrt: fahrt.endOrt || '',
+					rowStart: fahrt.rowStart != null ? fahrt.rowStart : null,
+					rowEnd: fahrt.rowEnd != null ? fahrt.rowEnd : null,
+					region: fahrt.region != null ? fahrt.region : null,
+					pageIndex: fahrt.pageIndex != null ? fahrt.pageIndex : null
+				});
+			});
+
+			return {
+				dienstbeginn: dienst.dienstbeginn || '',
+				dienstende: dienst.dienstende || '',
+				ausserhalbDienst
+			};
+		}
+
+		function getWagenkarteTripDurationMin(trip) {
+			const startMin = parseTimeToMinutes(trip && trip.startZeit ? trip.startZeit : '');
+			const endMin = parseTimeToMinutes(trip && trip.endZeit ? trip.endZeit : '');
+			if (startMin == null || endMin == null) return null;
+			return diffMinutes(startMin, endMin);
+		}
+
+		function buildWagenkarteLenkzeitAnalyse(dienst) {
+			const relevanteFahrten = (dienst.fahrtenSortiert || dienst.fahrten || [])
+				.filter(fahrt => fahrt && (fahrt.typ === 'linienfahrt' || fahrt.typ === 'leerfahrt'))
+				.map(fahrt => ({
+					typ: fahrt.typ,
+					linie: fahrt.linie || '',
+					kurs: fahrt.kurs || '',
+					startZeit: fahrt.startZeit || '',
+					endZeit: fahrt.endZeit || '',
+					dauerMin: getWagenkarteTripDurationMin(fahrt)
+				}));
+
+			const relevantePausen = (dienst.pausen || [])
+				.filter(pause => pause && (pause.typ === 'unbezahlte Pause' || pause.typ === 'geteilter Dienst'))
+				.map(pause => ({
+					typ: pause.typ,
+					start: pause.start || '',
+					end: pause.end || '',
+					dauerMin: pause.dauerMin || 0,
+					rawText: pause.rawText || ''
+				}))
+				.sort((a, b) => {
+					const aMin = parseTimeToMinutes(a.start);
+					const bMin = parseTimeToMinutes(b.start);
+					if (aMin != null && bMin != null) return aMin - bMin;
+					if (aMin != null) return -1;
+					if (bMin != null) return 1;
+					return 0;
+				});
+
+			const zusatzzeiten = {
+				wendezeitMin: 0,
+				bereitstellungszeitMin: 0,
+				vorbereitenMin: 0,
+				nachbereitenMin: 0,
+				dienstbereitschaftMin: 0,
+				unbezahltePauseMin: 0,
+				geteilterDienstMin: 0,
+				sonstigeMin: 0
+			};
+
+			(dienst.aktivitaeten || []).forEach(activity => {
+				const duration = typeof activity.dauerMin === 'number' ? activity.dauerMin : 0;
+				switch (activity.typ) {
+					case 'Wendezeit':
+						zusatzzeiten.wendezeitMin += duration;
+						break;
+					case 'Bereitstellungszeit':
+						zusatzzeiten.bereitstellungszeitMin += duration;
+						break;
+					case 'Vorbereiten':
+						zusatzzeiten.vorbereitenMin += duration;
+						break;
+					case 'Nachbereiten':
+						zusatzzeiten.nachbereitenMin += duration;
+						break;
+					case 'Dienstbereitschaft':
+						zusatzzeiten.dienstbereitschaftMin += duration;
+						break;
+					case 'unbezahlte Pause':
+						zusatzzeiten.unbezahltePauseMin += duration;
+						break;
+					case 'geteilter Dienst':
+						zusatzzeiten.geteilterDienstMin += duration;
+						break;
+					case 'Leerfahrt':
+					case 'Umlauf':
+					case 'Linie / Fahrt-Nr.':
+						break;
+					default:
+						if (duration > 0) zusatzzeiten.sonstigeMin += duration;
+						break;
+				}
+			});
+
+			const zusatzzeitenArbeitsnahMin =
+				zusatzzeiten.wendezeitMin +
+				zusatzzeiten.bereitstellungszeitMin +
+				zusatzzeiten.vorbereitenMin +
+				zusatzzeiten.nachbereitenMin +
+				zusatzzeiten.dienstbereitschaftMin;
+
+			const berechnetMin = relevanteFahrten.reduce((sum, fahrt) => sum + (fahrt.dauerMin || 0), 0);
+			const kopfMin = parseTimeToMinutes(dienst.lenkzeitKopf || '');
+			const differenzMin = kopfMin == null ? null : berechnetMin - kopfMin;
+
+			const bloecke = [];
+			let currentBlock = null;
+
+			relevanteFahrten.forEach((fahrt, index) => {
+				if (!currentBlock) {
+					currentBlock = {
+						startZeit: fahrt.startZeit,
+						endZeit: fahrt.endZeit,
+						dauerMin: fahrt.dauerMin || 0,
+						fahrten: [fahrt]
+					};
+				} else {
+					const prevFahrt = relevanteFahrten[index - 1];
+					const prevEndMin = parseTimeToMinutes(prevFahrt.endZeit);
+					const currentStartMin = parseTimeToMinutes(fahrt.startZeit);
+					const trenntBlock = relevantePausen.some(pause => {
+						const pauseStartMin = parseTimeToMinutes(pause.start);
+						const pauseEndMin = parseTimeToMinutes(pause.end);
+						if (prevEndMin == null || currentStartMin == null || pauseStartMin == null || pauseEndMin == null) {
+							return false;
+						}
+						return pauseStartMin >= prevEndMin && pauseEndMin <= currentStartMin;
+					});
+
+					if (trenntBlock) {
+						bloecke.push(currentBlock);
+						currentBlock = {
+							startZeit: fahrt.startZeit,
+							endZeit: fahrt.endZeit,
+							dauerMin: fahrt.dauerMin || 0,
+							fahrten: [fahrt]
+						};
+					} else {
+						currentBlock.endZeit = fahrt.endZeit;
+						currentBlock.dauerMin += fahrt.dauerMin || 0;
+						currentBlock.fahrten.push(fahrt);
+					}
+				}
+			});
+
+			if (currentBlock) bloecke.push(currentBlock);
+
+			const maxBlockMin = bloecke.reduce((max, block) => Math.max(max, block.dauerMin || 0), 0);
+			const relevantePause = relevantePausen.reduce((longest, pause) => {
+				if (!longest) return pause;
+				return (pause.dauerMin || 0) > (longest.dauerMin || 0) ? pause : longest;
+			}, null);
+
+			let lenkzeitVorPauseMin = null;
+			let lenkzeitNachPauseMin = null;
+
+			if (relevantePause) {
+				const pauseStartMin = parseTimeToMinutes(relevantePause.start);
+				const pauseEndMin = parseTimeToMinutes(relevantePause.end);
+
+				if (pauseStartMin != null && pauseEndMin != null) {
+					lenkzeitVorPauseMin = 0;
+					lenkzeitNachPauseMin = 0;
+
+					bloecke.forEach(block => {
+						const blockEndMin = parseTimeToMinutes(block.endZeit);
+						const blockStartMin = parseTimeToMinutes(block.startZeit);
+						if (blockEndMin != null && blockEndMin <= pauseStartMin) {
+							lenkzeitVorPauseMin += block.dauerMin || 0;
+						} else if (blockStartMin != null && blockStartMin >= pauseEndMin) {
+							lenkzeitNachPauseMin += block.dauerMin || 0;
+						}
+					});
+				}
+			}
+
+			const pruefung450Ok = maxBlockMin <= 270;
+			const warnHinweis = differenzMin != null && Math.abs(differenzMin) > 10
+				? 'Hinweis: Die berechnete Fahr-/Leerfahrzeit weicht vom L5-Kopfwert ab. L5 kann je nach Wagenkarte weitere Zeitarten enthalten. Bitte fachlich prüfen.'
+				: '';
+
+			return {
+				berechnetMin,
+				kopfMin,
+				differenzMin,
+				zusatzzeiten,
+				zusatzzeitenArbeitsnahMin,
+				lenkzeitVorPauseMin,
+				lenkzeitNachPauseMin,
+				fahrten: relevanteFahrten,
+				pausen: relevantePausen,
+				relevantePause,
+				bloecke,
+				maxBlockMin,
+				pruefung450Ok,
+				warnHinweis
+			};
+		}
+
+		function extractWagenkarteStructuredData(ws) {
+			const entries = buildWagenkarteEntries(ws);
+			const pages = detectWagenkartePages(entries);
+			const entriesByRegionRow = new Map();
+			const rowsByPageRegion = new Map();
+
+			entries.forEach(entry => {
+				const page = pages.find(candidate => entry.row >= candidate.startRow && entry.row <= candidate.endRow);
+				const pageIndex = page ? page.index : 0;
+				entry.pageIndex = pageIndex;
+				const key = `${pageIndex}:${entry.region}:${entry.row}`;
+				if (!entriesByRegionRow.has(key)) entriesByRegionRow.set(key, []);
+				entriesByRegionRow.get(key).push(entry);
+				const rowsKey = `${pageIndex}:${entry.region}`;
+				if (!rowsByPageRegion.has(rowsKey)) rowsByPageRegion.set(rowsKey, new Set());
+				rowsByPageRegion.get(rowsKey).add(entry.row);
+			});
+
+			const aktivitaeten = [];
+			const fahrten = [];
+
+			for (const page of pages) {
+				for (const region of [0, 1, 2]) {
+					const rowsKey = `${page.index}:${region}`;
+					const regionRows = Array.from(rowsByPageRegion.get(rowsKey) || []).sort((a, b) => a - b);
+					let pendingTrip = null;
+					let pendingTripType = 'linienfahrt';
+					let lastLineMarkerRow = null;
+					let lastLeerfahrtMarkerRow = null;
+
+					for (const row of regionRows) {
+						const key = `${page.index}:${region}:${row}`;
+						const rowEntries = (entriesByRegionRow.get(key) || []).slice().sort((a, b) => a.col - b.col);
+						const parsedActivities = rowEntries
+							.map(entry => {
+								const parsed = parseWagenkarteActivity(entry.text);
+								return parsed ? { ...parsed, row, region, pageIndex: page.index, addr: entry.addr } : null;
+							})
+							.filter(Boolean);
+						const lineCourseEntry = rowEntries
+							.map(entry => {
+								const parsed = parseWagenkarteLineCourse(entry.text);
+								return parsed ? { ...parsed, row, region, pageIndex: page.index, addr: entry.addr } : null;
+							})
+							.find(Boolean);
+						const stop = parseWagenkarteStopRow(rowEntries);
+
+						if (pendingTrip && pendingTrip.lastStopRow != null && row - pendingTrip.lastStopRow > 3) {
+							const finalized = finalizeWagenkarteTrip(pendingTrip);
+							if (finalized) fahrten.push(finalized);
+							pendingTrip = null;
+						}
+
+						const hasBoundaryMarker = parsedActivities.some(activity =>
+							activity.typ !== 'Umlauf' && activity.typ !== 'Linie / Fahrt-Nr.'
+						);
+						if (pendingTrip && (lineCourseEntry || hasBoundaryMarker)) {
+							const finalized = finalizeWagenkarteTrip(pendingTrip);
+							if (finalized) fahrten.push(finalized);
+							pendingTrip = null;
+						}
+
+						parsedActivities.forEach(activity => {
+							aktivitaeten.push(activity);
+							if (activity.typ === 'Leerfahrt') {
+								pendingTripType = 'leerfahrt';
+								lastLeerfahrtMarkerRow = row;
+							}
+							if (activity.typ === 'Linie / Fahrt-Nr.') {
+								lastLineMarkerRow = row;
+							}
+						});
+
+						if (lineCourseEntry && lastLineMarkerRow != null && row - lastLineMarkerRow <= 2) {
+							pendingTrip = {
+								typ: pendingTripType,
+								linie: lineCourseEntry.linie,
+								kurs: lineCourseEntry.kurs,
+								stops: [],
+								lastStopRow: null,
+								pageIndex: page.index,
+								region,
+								startRow: row
+							};
+							pendingTripType = 'linienfahrt';
+							lastLeerfahrtMarkerRow = null;
+							continue;
+						}
+
+						if (!pendingTrip && stop && pendingTripType === 'leerfahrt' && lastLeerfahrtMarkerRow != null && row > lastLeerfahrtMarkerRow && row - lastLeerfahrtMarkerRow <= 3) {
+							pendingTrip = {
+								typ: 'leerfahrt',
+								linie: '',
+								kurs: '',
+								stops: [stop],
+								lastStopRow: row,
+								pageIndex: page.index,
+								region,
+								startRow: row
+							};
+							pendingTripType = 'linienfahrt';
+							lastLeerfahrtMarkerRow = null;
+							continue;
+						}
+
+						if (!pendingTrip) continue;
+
+						if (stop) {
+							pendingTrip.stops.push(stop);
+							pendingTrip.lastStopRow = row;
+						}
+					}
+
+					const finalized = finalizeWagenkarteTrip(pendingTrip);
+					if (finalized) fahrten.push(finalized);
+				}
+			}
+
+			const alleOrte = [];
+			fahrten.forEach(fahrt => {
+				(fahrt.stops || []).forEach(stop => {
+					if (stop.ort) alleOrte.push(stop.ort);
+				});
+			});
+
+			return {
+				fahrten,
+				aktivitaeten: aktivitaeten.sort((a, b) => a.row - b.row || a.region - b.region),
+				alleOrte,
+				seiten: pages
+			};
+		}
+
+		/* --- parseWagenkarte: strukturierte Rohdaten für Wagenkarten --- */
+		function parseWagenkarte(wb) {
+		const dienste = [];
+
+		wb.SheetNames.forEach(sname => {
+			const ws = wb.Sheets[sname];
+			if (!ws) return;
+
+			// Prüfen, ob Sheet eine Wagenkarte ist (B1 = "Dienst-Nr.:")
+			const b1 = getWagenkarteCellValue(ws['B1']);
+			if (b1 !== 'Dienst-Nr.:') return;
+
+			// Kopfzellen extrahieren
+			const getCell = (addr) => getWagenkarteCellValue(ws[addr]);
+
+			const dienstNr = getCell('D1');
+			const zeitraum = getCell('J1');
+			const gueltigAb = getCell('D3');
+			const dienstbeginn = getCell('D4');
+			const dienstende = getCell('D5');
+			const schichtdauer = getCell('L3');
+			const bezahlteZeit = getCell('L4');
+			const lenkzeitKopf = getCell('L5');
+
+			if (!dienstNr) return; // Kein gültiger Dienst
+
+			const structuredData = extractWagenkarteStructuredData(ws);
+			const pausen = structuredData.aktivitaeten.filter(activity =>
+				activity.typ === 'unbezahlte Pause' || activity.typ === 'geteilter Dienst'
+			).map(activity => ({
+				start: activity.start || '',
+				end: activity.ende || '',
+				dauerMin: activity.dauerMin || 0,
+				rawText: activity.rawText,
+				typ: activity.typ
+			}));
+
+			const unbezahltePauseGesamtMin = pausen.reduce((sum, p) => sum + p.dauerMin, 0);
+
+			const dienst = {
+				dienstNr: String(dienstNr),
+				sheetName: sname,
+				zeitraum: zeitraum ? String(zeitraum).trim() : '',
+				gueltigAb: gueltigAb ? String(gueltigAb).trim() : '',
+				dienstbeginn: dienstbeginn ? String(dienstbeginn).trim() : '',
+				dienstende: dienstende ? String(dienstende).trim() : '',
+				schichtdauer: schichtdauer ? String(schichtdauer).trim() : '',
+				bezahlteZeit: bezahlteZeit ? String(bezahlteZeit).trim() : '',
+				lenkzeitKopf: lenkzeitKopf ? String(lenkzeitKopf).trim() : '',
+				pausen: pausen,
+				unbezahltePauseGesamtMin: unbezahltePauseGesamtMin,
+				fahrten: structuredData.fahrten,
+				aktivitaeten: structuredData.aktivitaeten.map(activity => ({ ...activity })),
+				alleOrte: structuredData.alleOrte,
+				fahrtenSortiert: structuredData.fahrten.slice().sort(compareWagenkarteTrips),
+				seiten: structuredData.seiten
+			};
+			dienst.lenkzeitAnalyse = buildWagenkarteLenkzeitAnalyse(dienst);
+			dienst.dienstteilAnalyse = buildWagenkarteDienstteilAnalyse(dienst);
+			dienst.wagenkartePausenAnalyse = buildWagenkartePausenAnalyse(dienst);
+			dienst.zeitGrenzenDiagnose = buildWagenkarteZeitGrenzenDiagnose(dienst);
+
+			// Phase 1: Debug-Konsolenausgabe entfernt (keine Dienstplandaten in der Konsole).
+
+			dienste.push(dienst);
+		});
+
+		// Dienstnummern sortieren
+		const idsSorted = dienste
+			.map(d => parseInt(d.dienstNr, 10))
+			.filter(n => !isNaN(n))
+			.sort((a, b) => a - b);
+		const ids = new Set(idsSorted);
+		const idArray = Array.from(ids);
+
+		// Plan-Typ
+		const zeitraumText = dienste.length > 0 ? (dienste[0].zeitraum || '') : '';
+		const planHinweis = zeitraumText
+			? `Wagenkarten \u2013 ${zeitraumText}`
+			: 'Wagenkarten (Zeitraum nicht erkannt)';
+		const planTypeText = `Erkannter Dienstplan: ${planHinweis}`;
+		const countText = `Anzahl eindeutiger Dienst-IDs: ${ids.size}\nIDs: ${idsSorted.join(', ')}`;
+
+		// Block 2: Geteilte Dienste nach Wagenkarten-Regel
+		// Regel: Schichtdauer > 10:00h UND unbezahlte Pause gesamt > 02:00h
+		const geteilteDienste = [];
+		dienste.forEach(d => {
+			const dur = d.schichtdauer;
+			if (!dur || typeof dur !== 'string') return;
+			const parts = dur.split(':');
+			if (parts.length !== 2) return;
+			const h = parseInt(parts[0], 10);
+			const m = parseInt(parts[1], 10);
+			if (isNaN(h) || isNaN(m)) return;
+			const schichtMin = h * 60 + m;
+			const pausenMin = d.unbezahltePauseGesamtMin || 0;
+			if (schichtMin > 600 && pausenMin > 120) {
+				geteilteDienste.push({
+					nr: parseInt(d.dienstNr, 10),
+					schichtdauer: dur,
+					pausenMin: pausenMin,
+					pausenStr: String(Math.floor(pausenMin / 60)).padStart(2, '0') + ':' + String(pausenMin % 60).padStart(2, '0')
+				});
+			}
+		});
+		geteilteDienste.sort((a, b) => a.nr - b.nr);
+		const wagenkarteSharedIds = new Set(geteilteDienste.map(d => d.nr));
+
+		let sharedText =
+			`Anzahl geteilte Dienste (Wagenkarten-Regel): ${geteilteDienste.length}\n` +
+			`Regel: Schichtdauer >10:00h UND unbezahlte Pause/Dienstunterbrechung gesamt >02:00h\n\n`;
+
+		if (geteilteDienste.length > 0) {
+			sharedText += `IDs: ${geteilteDienste.map(d => d.nr).join(', ')}\n\n`;
+			geteilteDienste.forEach(d => {
+				sharedText += `ID ${d.nr}: Schichtdauer ${d.schichtdauer}, Dienstunterbrechung ${d.pausenStr} \u2192 geteilter Dienst\n`;
+			});
+		} else {
+			sharedText += 'Keine geteilten Dienste nach Wagenkarten-Regel gefunden.\n\n';
+			// Diagnose: Dienste mit Schichtdauer >10h aber zu wenig Pause
+			const knappeDienste = [];
+			dienste.forEach(d => {
+				const dur = d.schichtdauer;
+				if (!dur || typeof dur !== 'string') return;
+				const parts = dur.split(':');
+				if (parts.length !== 2) return;
+				const h = parseInt(parts[0], 10);
+				const m = parseInt(parts[1], 10);
+				if (isNaN(h) || isNaN(m)) return;
+				const schichtMin = h * 60 + m;
+				if (schichtMin > 600) {
+					const pMin = d.unbezahltePauseGesamtMin || 0;
+					const pStr = String(Math.floor(pMin / 60)).padStart(2, '0') + ':' + String(pMin % 60).padStart(2, '0');
+					knappeDienste.push(`ID ${d.dienstNr}: Schichtdauer ${dur}, Dienstunterbrechung ${pStr} (benötigt >02:00h)`);
+				}
+			});
+			if (knappeDienste.length > 0) {
+				sharedText += 'Dienste mit Schichtdauer >10:00h, aber Dienstunterbrechung \u226402:00h:\n';
+				knappeDienste.forEach(line => { sharedText += line + '\n'; });
+			}
+		}
+
+		// Block 3: Reserve Dienste (gleiche ID-Liste wie tabellarisch)
+		const reserveIds = [
+			1, 100, 190, 90,
+			1101, 1102, 1201, 1202,
+			1301, 1302, 1401, 1402,
+			2101, 2102, 2201, 2202,
+			2301, 2302, 2401, 2402
+		];
+		const foundReserve = reserveIds.filter(id => ids.has(id));
+		const reserveText = `Anzahl Reserve-Dienste: ${foundReserve.length}\nIDs: ${foundReserve.sort((a,b)=>a-b).join(', ')}`;
+
+		// Block 4: Dienste mit bezahlter Zeit >08:30h (Wagenkarten: Zelle L4)
+		const longSet = new Set();
+		dienste.forEach(d => {
+			const dur = d.bezahlteZeit; // L4 statt L3
+			if (dur && typeof dur === 'string') {
+				const parts = dur.split(':');
+				if (parts.length === 2) {
+					const h = parseInt(parts[0], 10);
+					const m = parseInt(parts[1], 10);
+					if (!isNaN(h) && !isNaN(m)) {
+						if (h > 8 || (h === 8 && m > 30)) {
+							const nr = parseInt(d.dienstNr, 10);
+							if (!isNaN(nr)) longSet.add(nr);
+						}
+					}
+				}
+			}
+		});
+		const longText = `Dienste mit bezahlter Zeit >08:30h: ${[...longSet].sort((a, b) => a - b).join(', ') || 'keine'}`;
+
+		// Block 5: Orte aus erster/letzter relevanter Fahrt
+		const locText = buildWagenkarteLocText(
+			dienste.map(dienst => ({
+				...dienst,
+				fahrten: dienst.fahrtenSortiert || dienst.fahrten || []
+			}))
+		);
+
+		// Block 6: Arbeitszeit-/Dienstteilstücke vor/nach Pause
+		const segmentText = buildWagenkarteSegmentText(dienste);
+
+		// Block 7: Lenkzeit real vor/nach Pause
+		const realDrivingTimeText = buildWagenkarteRealDrivingTimeText(dienste);
+
+		// Block 8: Schichtzuweisung anhand D4
+		const isWeekendPlan = (
+			zeitraumText.includes('Samstag') || zeitraumText.includes('Sonntag')
+		);
+
+		const shiftRules = isWeekendPlan ?
+			[
+				{ name: 'WE-F1', start: 170, end: 360 },
+				{ name: 'WE-F2', start: 360, end: 615 },
+				{ name: 'S1', start: 615, end: 779 },
+				{ name: 'S2', start: 780, end: 1159 },
+				{ name: 'N', start: 1160, end: 1440 }
+			] :
+			[
+				{ name: 'F1', start: 170, end: 270 },
+				{ name: 'F2', start: 271, end: 371 },
+				{ name: 'F3', start: 372, end: 614 },
+				{ name: 'S1', start: 615, end: 779 },
+				{ name: 'S2', start: 780, end: 1159 },
+				{ name: 'N', start: 1160, end: 1440 }
+			];
+
+		const shiftCount = {};
+		const assignments = [];
+
+		dienste.forEach(d => {
+			const nr = parseInt(d.dienstNr, 10);
+			if (isNaN(nr)) return;
+			const tm = d.dienstbeginn;
+			if (tm) {
+				const m = String(tm).match(/^(\d{1,2}):(\d{2})$/);
+				if (m) {
+					const mins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+					const rule = shiftRules.find(s => mins >= s.start && mins < s.end);
+					const baseName = rule ? rule.name : 'Unbekannte';
+					const isShared = wagenkarteSharedIds.has(nr);
+					const finalName = (isShared && (baseName === 'F1' || baseName === 'F2' || baseName === 'F3'))
+						? `G${baseName}`
+						: baseName;
+					shiftCount[finalName] = (shiftCount[finalName] || 0) + 1;
+					assignments.push({ id: nr, shift: finalName, isShared });
+				}
+			}
+		});
+
+		let shText = isWeekendPlan ?
+			'Schichtzählung nach WE-F1, WE-F2, S1, S2, N (Wagenkarten \u2013 Dienstbeginn aus Zelle D4):\n' :
+			'Schichtzählung nach F1, F2, F3, GF1, GF2, GF3, S1, S2, N (Wagenkarten \u2013 Dienstbeginn aus Zelle D4):\n';
+
+		sortShiftNames(Object.keys(shiftCount)).forEach(name => {
+			if (shiftCount[name] != null) {
+				shText += `${name}: ${shiftCount[name]}\n`;
+			}
+		});
+
+		shText += '\nZuteilung je Dienst-ID:\n';
+		assignments
+			.sort((a, b) => a.id - b.id)
+			.forEach(a => {
+				shText += `ID ${a.id}: ${a.shift}${a.isShared ? ' (geteilt)' : ''}\n`;
+			});
+
+		const shiftText = shText.trim();
+		const shiftHtml = buildShiftHtml(
+			isWeekendPlan
+				? 'Schichtzuweisung nach WE-F1, WE-F2, S1, S2, N'
+				: 'Schichtzuweisung nach F1, F2, F3, GF1, GF2, GF3, S1, S2, N',
+			assignments
+		);
+
+		// Block 9: Linien/Kurse aus erkannten Fahrten
+		const routeText = buildWagenkarteRouteText(
+			dienste.map(dienst => ({
+				...dienst,
+				fahrten: dienst.fahrtenSortiert || dienst.fahrten || []
+			}))
+		);
+
+		// Block 10: Pausen und Dienstunterbrechungen für Wagenkarten
+		const pauseHtml = buildWagenkartePauseHtml(dienste);
+
+		return {
+			planTypeText,
+			countText,
+			sharedText,
+			reserveText,
+			longText,
+			locText,
+			segmentText,
+			realDrivingTimeText,
+			shiftText,
+			shiftHtml,
+			routeText,
+			pauseHtml,
+			planHinweis,
+			dienste
+		};
+	}
+
+
+
+
+
+		document.getElementById('file-input').addEventListener('change', function() {
+			const file = this.files[0];
+			if (file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''))) {
+				return;
+			}
+			const blocks = [
+				'plan-type-result',
+				'count-result',
+				'shared-result',
+				'reserve-result',
+				'long-result',
+				'loc-result',
+				'segment-result',
+				'real-driving-time-result',
+				'shift-result',
+				'route-result',
+				'pause-result'
+			];
+			document.getElementById('file-result').textContent =
+				file ? `Datei: ${file.name}` : 'Keine Datei ausgewählt.';
+			blocks.forEach(id =>
+				document.getElementById(id).textContent = file ? 'Warte auf Auswertung...' : '-'
+			);
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = function(e) {
+				const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+
+				// Format erkennen und passenden Parser wählen
+				const format = detectWorkbookFormat(wb);
+				let result;
+
+				if (format === 'wagenkarte') {
+					result = parseWagenkarte(wb);
+				} else {
+					const rows = XLSX.utils.sheet_to_json(
+						wb.Sheets[wb.SheetNames[0]], { header: 1 }
+					);
+					result = parseTabular(rows, {});
+				}
+
+				// DOM-Ausgabe
+				document.getElementById('plan-type-result').textContent = result.planTypeText;
+				const planDisplay = document.getElementById('current-plan-display');
+				if (planDisplay) {
+					planDisplay.textContent = `Aktueller Plan: ${result.planHinweis}`;
+				}
+				document.getElementById('count-result').textContent = result.countText;
+				document.getElementById('shared-result').textContent = result.sharedText;
+				document.getElementById('reserve-result').textContent = result.reserveText;
+				document.getElementById('long-result').textContent = result.longText;
+				document.getElementById('loc-result').textContent = result.locText;
+				document.getElementById('segment-result').textContent = result.segmentText;
+				document.getElementById('real-driving-time-result').textContent = result.realDrivingTimeText;
+				document.getElementById('shift-result').innerHTML = result.shiftHtml || escapeHtml(result.shiftText || '').replace(/\n/g, '<br>');
+				document.getElementById('route-result').textContent = result.routeText;
+				document.getElementById('pause-result').innerHTML = result.pauseHtml;
+			};
+
+			reader.readAsArrayBuffer(file);
+		});
+
+	</script>
+
+	<!-- Phase 1: KI-Hilfsfunktionen (Backend-URL, Prompt-Builder) entfernt. -->
+	<!-- Phase 1: KI-Chat-Widget-Logik entfernt. -->
+	<!-- Suchfunktion (mit Plan-Typ im Filter enthalten) -->
+	<script>
+		(function() {
+			const searchInput = document.getElementById('search-input');
+			const clearBtn = document.getElementById('search-clear');
+			const info = document.getElementById('search-info');
+
+			if (!searchInput || !info) return;
+
+			const resultIds = [
+				'plan-type-result',
+				'count-result',
+				'shared-result',
+				'reserve-result',
+				'long-result',
+				'loc-result',
+				'segment-result',
+				'real-driving-time-result',
+				'shift-result',
+				'route-result',
+				'pause-result'
+			];
+
+			function applySearch() {
+				const term = searchInput.value.trim().toLowerCase();
+				let hitCount = 0;
+
+				resultIds.forEach(id => {
+					const el = document.getElementById(id);
+					if (!el || !el.parentElement) return;
+
+					const text = (el.textContent || '').toLowerCase();
+
+					if (!term) {
+						el.parentElement.style.display = '';
+						return;
+					}
+
+					if (text.includes(term)) {
+						el.parentElement.style.display = '';
+						hitCount++;
+					} else {
+						el.parentElement.style.display = 'none';
+					}
+				});
+
+				if (!term) {
+					info.textContent = 'Filter ist deaktiviert.';
+				} else if (hitCount === 0) {
+					info.textContent = `Kein Block enthält „${searchInput.value}“.`;
+				} else if (hitCount === 1) {
+					info.textContent = `1 Block enthält „${searchInput.value}“.`;
+				} else {
+					info.textContent = `${hitCount} Blöcke enthalten „${searchInput.value}“.`;
+				}
+			}
+
+			searchInput.addEventListener('input', applySearch);
+			if (clearBtn) {
+				clearBtn.addEventListener('click', () => {
+					searchInput.value = '';
+					applySearch();
+				});
+			}
+		})();
+	</script>
+
+	<!-- Phase 1: KI-gestützte Auswertung entfernt. -->
+	<script type="module" src="js/v2/pdf-import-bootstrap.js"></script>
+	<script type="module" src="js/v2/check-explorer-bootstrap.js"></script>
+</body>
+
+</html>

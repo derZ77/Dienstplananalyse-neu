@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rule-config.schema.json",
+  "title": "Dienstplananalyse rule configuration (parameters only)",
+  "description": "Documentary reference schema. Authoritative validation is js/v2/rules/config/rule-config-validator.js. Configuration carries parameters only, never executable code.",
+  "type": "object",
+  "required": ["schemaVersion", "ruleSetId", "organization", "status", "validFrom", "sourceReferences", "approvedBy", "parameters"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "ruleSetId": { "type": "string", "minLength": 1 },
+    "organization": { "type": "string", "enum": ["JES", "JNV", "LEGACY", "SHARED"] },
+    "profileIds": { "type": "array", "items": { "type": "string" } },
+    "status": { "type": "string", "enum": ["draft", "reviewed", "approved", "deprecated"] },
+    "validFrom": { "type": ["string", "null"] },
+    "sourceReferences": { "type": "array", "items": { "type": "string" } },
+    "approvedBy": { "type": ["string", "null"] },
+    "parameters": { "type": "object" }
+  },
+  "definitions": {
+    "parameterLeaf": {
+      "type": "object",
+      "required": ["value", "status"],
+      "properties": {
+        "value": {},
+        "status": { "type": "string", "enum": ["confirmed", "provisional", "open"] },
+        "unit": { "type": "string", "enum": ["minutes", "meters", "ratio", "weekdays", "lines", "flag", "text", "none"] },
+        "format": { "type": "string", "enum": ["time"] }
+      },
+      "comment": "status=open requires value=null. Executable code is forbidden in any value."
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "ruleSetId": "shared-blockpause-v1",
+  "organization": "SHARED",
+  "status": "draft",
+  "validFrom": null,
+  "sourceReferences": ["docs/bv-check-catalog.md (BV010, BV012)"],
+  "approvedBy": null,
+  "parameters": {
+    "minimumMinutes": { "value": 30, "status": "confirmed", "unit": "minutes" },
+    "bufferMinutes": { "value": 33, "status": "confirmed", "unit": "minutes" },
+    "maxDeductibleMinutes": { "value": 30, "status": "confirmed", "unit": "minutes" }
+  }
+}

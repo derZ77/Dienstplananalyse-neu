@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "ruleSetId": "jes-v1",
+  "organization": "JES",
+  "profileIds": ["jes-regionalbus-v1"],
+  "status": "draft",
+  "validFrom": null,
+  "sourceReferences": ["docs/bv-check-catalog.md", "PHASE-2A-VERBUNDANALYSE-FACHREGEL-AUDIT.md"],
+  "approvedBy": null,
+  "parameters": {
+    "oneSixthApplicable": { "value": false, "status": "confirmed", "unit": "flag" },
+    "appliedSharedRuleSets": { "value": ["shared-arbeitszeit-v1", "shared-lenkzeit-v1", "shared-blockpause-v1"], "status": "confirmed", "unit": "none" }
+  }
+}

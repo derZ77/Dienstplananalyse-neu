@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "ruleSetId": "shared-lenkzeit-v1",
+  "organization": "SHARED",
+  "status": "draft",
+  "validFrom": null,
+  "sourceReferences": ["docs/bv-check-catalog.md (BV008)", "FACHREGELVERTRAG-DIENSTPLANANALYSE-V0.1.md"],
+  "approvedBy": null,
+  "parameters": {
+    "maxUninterruptedDrivingMinutes": { "value": 270, "status": "confirmed", "unit": "minutes" },
+    "standardBreakMinutes": { "value": 45, "status": "confirmed", "unit": "minutes" },
+    "splitBreakPattern": { "value": [15, 30], "status": "confirmed", "unit": "none" },
+    "lineServiceAlternatives": { "value": [[15, 15, 15], [20, 20], [30]], "status": "confirmed", "unit": "none" }
+  }
+}

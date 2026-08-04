@@ -1,0 +1,83 @@
+{
+  "id": "beu-v1-activities",
+  "priority": 300,
+  "rules": [
+    {
+      "id": "beu-activity-default-unknown",
+      "priority": 1000,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": ".*" },
+      "action": { "type": "set", "path": "activityType", "value": "unknown" }
+    },
+    {
+      "id": "beu-activity-preparation",
+      "priority": 100,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Vorbereitung\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "preparation" }
+    },
+    {
+      "id": "beu-activity-setup",
+      "priority": 99,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Aufrüsten\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "preparation" }
+    },
+    {
+      "id": "beu-activity-postprocessing",
+      "priority": 98,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Nachbereitung\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "postprocessing" }
+    },
+    {
+      "id": "beu-activity-teardown",
+      "priority": 97,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Abrüsten\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "postprocessing" }
+    },
+    {
+      "id": "beu-activity-ride-along",
+      "priority": 96,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Mitfahrt\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "rideAlong" }
+    },
+    {
+      "id": "beu-activity-walking-time",
+      "priority": 95,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Wegezeit\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "walkingTime" }
+    },
+    {
+      "id": "beu-activity-paid-break",
+      "priority": 94,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Pause \\(bezahlt\\)\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "paidBreak" }
+    },
+    {
+      "id": "beu-activity-unpaid-break",
+      "priority": 93,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Pause\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "unpaidBreak" }
+    },
+    {
+      "id": "beu-activity-service-drive",
+      "priority": 92,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Dienst\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "serviceDrive" }
+    },
+    {
+      "id": "beu-activity-dead-run",
+      "priority": 91,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*(Leerfahrt|Betriebsfahrt)\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "deadRun" }
+    }
+  ]
+}

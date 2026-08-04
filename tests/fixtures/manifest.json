@@ -1,0 +1,66 @@
+{
+  "manifestVersion": "1.0",
+  "note": "Phase 2 fixture contract. No real personal data. The JNV Stadtbus schedule PDF reference exists (technical profile beu-stadtbus-v1) but lives outside the repository. The JNV Umlaufkarte (companion) is still missing.",
+  "sourceKinds": ["anonymized", "synthetic", "contract-only"],
+  "statuses": ["available", "missing", "planned", "restricted"],
+  "expectedDirectories": ["legacy-excel", "jes", "jnv", "wagenkarte", "umlaufkarte", "bundles", "synthetic"],
+  "fixtures": [
+    {
+      "id": "legacy-excel-mini",
+      "documentType": "legacy_excel_schedule",
+      "organization": "LEGACY",
+      "sourceKind": "synthetic",
+      "status": "available",
+      "profileId": null,
+      "path": "synthetic/legacy-excel-mini.rows.json"
+    },
+    {
+      "id": "jes-schedule-basic",
+      "documentType": "jes_schedule_pdf",
+      "organization": "JES",
+      "sourceKind": "anonymized",
+      "status": "missing",
+      "profileId": "jes-regionalbus-v1",
+      "path": "jes/jes-schedule-basic.pdf",
+      "reason": "reference PDF outside repository (~/Downloads); must be anonymized before versioning"
+    },
+    {
+      "id": "jnv-stadtbus-schedule-basic",
+      "documentType": "jnv_schedule_pdf",
+      "organization": "JNV",
+      "sourceKind": "anonymized",
+      "status": "restricted",
+      "profileId": "beu-stadtbus-v1",
+      "path": "jnv/jnv-stadtbus-schedule-basic.pdf",
+      "reason": "Real JNV Stadtbus reference exists (detected as technical profile beu-stadtbus-v1) but lives outside the repository (~/Downloads); must be anonymized before versioning. The JNV primary profile is present — this is NOT a missing reference."
+    },
+    {
+      "id": "wagenkarte-basic",
+      "documentType": "wagenkarte",
+      "organization": "UNKNOWN",
+      "sourceKind": "synthetic",
+      "status": "planned",
+      "profileId": null,
+      "path": "wagenkarte/wagenkarte-basic.source.json"
+    },
+    {
+      "id": "jnv-umlaufkarte-basic",
+      "documentType": "umlaufkarte",
+      "organization": "JNV",
+      "sourceKind": "contract-only",
+      "status": "planned",
+      "marker": "synthetic_contract_only",
+      "profileId": null,
+      "note": "JNV companion. Umlaufkarte loader/reference not implemented (Phase 3+)."
+    },
+    {
+      "id": "bundle-jnv-umlaufkarte",
+      "documentType": null,
+      "organization": "JNV",
+      "sourceKind": "synthetic",
+      "status": "planned",
+      "profileId": null,
+      "note": "Combined JNV schedule + Umlaufkarte bundle fixture (Phase 3)."
+    }
+  ]
+}

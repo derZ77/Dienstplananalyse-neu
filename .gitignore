@@ -1,0 +1,23 @@
+# Testdaten / persönliche Dateien
+acceptance-data/
+*.pdf
+*.xlsx
+*.xls
+.DS_Store
+
+# Node
+node_modules/
+
+# lokale Logs
+*.log
+
+# temporäre Dateien
+*.tmp
+
+# interne Entwicklungsdokumentation
+PHASE-*.md
+FACHREGELVERTRAG-*.md
+JNV-REFERENZANALYSE-*.md
+JNV-UMLAUFTAFELN-REFERENZANALYSE-*.md
+DIENSTPLANANALYSE-*.md
+RULE-CONFIG-DESIGN-*.md

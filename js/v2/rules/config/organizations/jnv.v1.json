@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "ruleSetId": "jnv-v1",
+  "organization": "JNV",
+  "profileIds": ["beu-stadtbus-v1"],
+  "status": "draft",
+  "validFrom": null,
+  "sourceReferences": [
+    "FACHREGELVERTRAG-DIENSTPLANANALYSE-V0.1.md",
+    "docs/bv-check-catalog.md (BV015-BV018)",
+    "Auftrag Phase 2A / Phase 2"
+  ],
+  "approvedBy": null,
+  "parameters": {
+    "oneSixth": {
+      "enabled": { "value": false, "status": "provisional", "unit": "flag" },
+      "appliesToOrganizations": { "value": ["JNV"], "status": "confirmed", "unit": "none" },
+      "averageStopDistanceMaxMetersExclusive": { "value": 3000, "status": "confirmed", "unit": "meters" },
+      "distanceComputation": { "value": null, "status": "open" },
+      "eligibleWeekdays": { "value": ["SATURDAY", "SUNDAY"], "status": "confirmed", "unit": "weekdays" },
+      "includePublicHolidays": { "value": null, "status": "open" },
+      "exceptionNightShift": { "value": true, "status": "confirmed", "unit": "flag" },
+      "exceptionLines": { "value": ["18"], "status": "confirmed", "unit": "lines" },
+      "line18Scope": { "value": null, "status": "open" },
+      "requiredRatioOfNetDrivingTime": { "value": "1/6", "status": "confirmed", "unit": "ratio" },
+      "ratioComputation": { "value": null, "status": "open" }
+    },
+    "turnaround": {
+      "minimumCreditableMinutes": { "value": 10, "status": "confirmed", "unit": "minutes" },
+      "technicalMinutes": { "value": 1, "status": "confirmed", "unit": "minutes" },
+      "minimumActualMinutes": { "value": 11, "status": "confirmed", "unit": "minutes" },
+      "tariffReducedApplicable": { "value": false, "status": "confirmed", "unit": "flag" },
+      "tariffReducedMinutes": { "value": null, "status": "confirmed", "unit": "none" },
+      "tariffReducedAutoActivate": { "value": false, "status": "confirmed", "unit": "flag" }
+    },
+    "nightShift": {
+      "startTime": { "value": "19:20", "status": "provisional", "format": "time" }
+    },
+    "kombifahrer": {
+      "details": { "value": null, "status": "open" }
+    }
+  }
+}

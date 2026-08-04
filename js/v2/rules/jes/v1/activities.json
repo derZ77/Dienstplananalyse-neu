@@ -1,0 +1,69 @@
+{
+  "id": "jes-v1-activities",
+  "priority": 300,
+  "rules": [
+    {
+      "id": "jes-activity-default-unknown",
+      "priority": 1000,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": ".*" },
+      "action": { "type": "set", "path": "activityType", "value": "unknown" }
+    },
+    {
+      "id": "jes-activity-preparation",
+      "priority": 100,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Vorbereitungszeit JES(?: 5 min)?\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "preparation" }
+    },
+    {
+      "id": "jes-activity-postprocessing",
+      "priority": 99,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Nachbereitungszeit JES(?: 5)?(?: min)?\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "postprocessing" }
+    },
+    {
+      "id": "jes-activity-ride-along",
+      "priority": 98,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Mitfahrt\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "rideAlong" }
+    },
+    {
+      "id": "jes-activity-walking-time",
+      "priority": 97,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Wegezeit\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "walkingTime" }
+    },
+    {
+      "id": "jes-activity-paid-break",
+      "priority": 96,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Pause \\(bezahlt\\)\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "paidBreak" }
+    },
+    {
+      "id": "jes-activity-unpaid-break",
+      "priority": 95,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Pause\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "unpaidBreak" }
+    },
+    {
+      "id": "jes-activity-service-drive",
+      "priority": 94,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Dienst\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "serviceDrive" }
+    },
+    {
+      "id": "jes-activity-dead-run",
+      "priority": 93,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*(Leerfahrt|Betriebsfahrt)\\s*$", "ignoreCase": true },
+      "action": { "type": "set", "path": "activityType", "value": "deadRun" }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "jes-v1-interruptions",
+  "priority": 200,
+  "rules": [
+    {
+      "id": "jes-interruption-service",
+      "priority": 100,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "contains", "value": "Dienstunterbrechung", "ignoreCase": true },
+      "action": { "type": "set", "path": "interruptionKind", "value": "serviceInterruption" }
+    },
+    {
+      "id": "jes-interruption-break",
+      "priority": 99,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^\\s*Pause", "ignoreCase": true },
+      "action": { "type": "set", "path": "interruptionKind", "value": "break" }
+    },
+    {
+      "id": "jes-interruption-standby",
+      "priority": 98,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "contains", "value": "Bereitschaft", "ignoreCase": true },
+      "action": { "type": "set", "path": "interruptionKind", "value": "standby" }
+    }
+  ]
+}

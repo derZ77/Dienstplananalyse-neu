@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "1.0",
+  "ruleSetId": "jnv-one-sixth-v1",
+  "organization": "JNV",
+  "profileIds": ["beu-stadtbus-v1"],
+  "status": "approved",
+  "validFrom": null,
+  "sourceReferences": [
+    "docs/bv-check-catalog.md (BV015-BV018)",
+    "FACHREGELVERTRAG-DIENSTPLANANALYSE-V0.1.md",
+    "PHASE-3I.1-JNV-1-6-FACHREGELVERTRAG-DATENREIFE-AUDIT.md",
+    "PHASE-3I.2-JNV-1-6-FACHVERTRAGSKORREKTUR-FALLBACKSTRATEGIE.md",
+    "PHASE-3I.8-JNV-1-6-PFLICHTPARAMETER-ABSCHLUSS.md",
+    "PHASE-3I.11-LINIE18-STATUSKORREKTUR-FREIGABEAUDIT.md",
+    "PHASE-3I.12-FACHVERTRAGSABSCHLUSS.md",
+    "PHASE-3I.15b-LINIE18-ZULASSUNGSGRUND.md",
+    "PHASE-3I.15c-FREIGABE-NACHFUEHRUNG.md",
+    "Nutzerangaben Phase 3I.1 und 3I.2 (verbindliche betriebliche Regeln)",
+    "Nutzerangaben Phase 3I.8 (verbindliche Regeln 1 bis 20)",
+    "Nutzerangaben Phase 3I.8b (Nachtschicht einschliesslich, Linie-18-Scope, Segmentbehandlung)",
+    "Nutzerangaben Phase 3I.12 (Nachtschicht zusaetzlich in 1/6, Wochenendnachtschicht regulaer, Leerfahrt volle Lenkzeit)",
+    "Nutzerangaben Phase 3I.15b (Linie 18 ist Zulassungsgrund, nur bei ausschliesslicher Linie-18-Fahrleistung, keine Segmentausnahme)",
+    "Nutzerangaben Phase 3I.15c (Freigabe nach der Linie-18-Korrektur erneuert, Wochenenddienst ohne Vorzugsbehandlung)"
+  ],
+  "approvedBy": "JNV_RULE_APPROVAL_2026_PHASE3I15C",
+  "parameters": {
+    "activation": {
+      "enabled": { "value": false, "status": "confirmed", "unit": "flag" },
+      "ruleIds": { "value": ["BV015", "BV016", "BV017", "BV018"], "status": "confirmed", "unit": "none" }
+    },
+    "scope": {
+      "organizations": { "value": ["JNV"], "status": "confirmed", "unit": "none" },
+      "excludedOrganizations": { "value": ["JES"], "status": "confirmed", "unit": "none" },
+      "modes": { "value": ["bus", "tram"], "status": "confirmed", "unit": "none" },
+      "combinedDriverRequirement": { "value": "not_required", "status": "confirmed", "unit": "text" },
+      "assessmentBasis": { "value": "fahrpersonalverordnung", "status": "confirmed", "unit": "text" },
+      "serviceType": { "value": "line_service", "status": "confirmed", "unit": "text" }
+    },
+    "eligibility": {
+      "stopDistanceStrategy": { "value": "organization_default", "status": "confirmed", "unit": "text" },
+      "stopDistanceCategoryJnv": { "value": "below_3000m", "status": "confirmed", "unit": "text" },
+      "stopDistanceCategoryJes": { "value": "above_3000m", "status": "confirmed", "unit": "text" },
+      "stopDistanceComputationRequired": { "value": false, "status": "confirmed", "unit": "flag" },
+      "averageStopDistanceMaxMetersExclusive": { "value": 3000, "status": "confirmed", "unit": "meters" },
+      "defaultDayType": { "value": "MON_FRI", "status": "confirmed", "unit": "weekdays" },
+      "explicitSaturdayLabelDayType": { "value": "SATURDAY", "status": "confirmed", "unit": "weekdays" },
+      "explicitSundayOrHolidayLabelDayType": { "value": "SUNDAY_HOLIDAY", "status": "confirmed", "unit": "weekdays" },
+      "allowedDayTypes": { "value": ["SATURDAY", "SUNDAY_HOLIDAY"], "status": "confirmed", "unit": "weekdays" },
+      "nightShiftIsException": { "value": true, "status": "confirmed", "unit": "flag" },
+      "nightShiftStart": { "value": "19:20", "status": "confirmed", "format": "time" },
+      "nightShiftStartInclusive": { "value": true, "status": "confirmed", "unit": "flag" },
+      "nightShiftStartBasis": { "value": "duty_start_time", "status": "confirmed", "unit": "text" },
+      "admissionLines": { "value": ["18"], "status": "confirmed", "unit": "lines" },
+      "admissionLineEffect": { "value": "admission_ground", "status": "confirmed", "unit": "text" },
+      "admissionLineRequiresPureDuty": { "value": true, "status": "confirmed", "unit": "flag" }
+    },
+    "turnaround": {
+      "minimumCreditableMinutes": { "value": 10, "status": "confirmed", "unit": "minutes" },
+      "technicalMinutes": { "value": 1, "status": "confirmed", "unit": "minutes" },
+      "minimumObservedSpanMinutes": { "value": 11, "status": "confirmed", "unit": "minutes" },
+      "belowMinimumCreditedMinutes": { "value": 0, "status": "confirmed", "unit": "minutes" },
+      "creditingMethod": { "value": "full_observed_span", "status": "confirmed", "unit": "text" },
+      "technicalMinuteIncludedInCreditedDuration": { "value": true, "status": "confirmed", "unit": "flag" },
+      "technicalMinuteDeducted": { "value": false, "status": "confirmed", "unit": "flag" },
+      "flatRateCreditingMinutes": { "value": null, "status": "confirmed", "unit": "none" },
+      "tariffReductionApplicable": { "value": false, "status": "confirmed", "unit": "flag" },
+      "tariffReductionMinutes": { "value": null, "status": "confirmed", "unit": "none" },
+      "tariffReductionAutoActivate": { "value": false, "status": "confirmed", "unit": "flag" },
+      "plainGapCountsAsTurnaround": { "value": false, "status": "confirmed", "unit": "flag" },
+      "multipleTurnaroundHandling": { "value": "sum_of_creditable_turnarounds", "status": "confirmed", "unit": "text" },
+      "turnaroundEvidence": { "value": "adjacent_service_trips_same_circulation_arrival_to_next_departure", "status": "confirmed", "unit": "text" },
+      "acceptedTurnaroundConfidence": { "value": ["exact", "probable"], "status": "confirmed", "unit": "none" },
+      "locationMismatchBlocksCrediting": { "value": false, "status": "confirmed", "unit": "flag" },
+      "locationMismatchProducesWarning": { "value": true, "status": "confirmed", "unit": "flag" },
+      "turnaroundEvidenceSource": { "value": "umlauftafel_stop_event_times", "status": "confirmed", "unit": "text" },
+      "turnaroundBridgingSegmentsAllowed": { "value": false, "status": "confirmed", "unit": "flag" },
+      "blockBreakRelationship": { "value": "candidate_evidence_only_without_umlauftafel", "status": "confirmed", "unit": "text" }
+    },
+    "calculation": {
+      "requiredRatioNumerator": { "value": 1, "status": "confirmed", "unit": "none" },
+      "requiredRatioDenominator": { "value": 6, "status": "confirmed", "unit": "none" },
+      "plannedDrivingTimeFormula": { "value": "duty_duration_minus_all_non_driving_time", "status": "confirmed", "unit": "text" },
+      "nonDrivingTimeCategories": { "value": ["turnaround", "standing_time", "preparation_time", "closing_time", "other_non_driving_time"], "status": "confirmed", "unit": "none" },
+      "requiredCreditableTurnaroundFormula": { "value": "planned_driving_time_divided_by_6", "status": "confirmed", "unit": "text" },
+      "comparisonFormula": { "value": "sum_creditable_turnaround_minutes_at_least_required", "status": "confirmed", "unit": "text" },
+      "creditedTurnaroundFormula": { "value": "observed_span_below_minimum_credits_zero_otherwise_full_observed_span", "status": "confirmed", "unit": "text" },
+      "aggregationScope": { "value": "duty", "status": "confirmed", "unit": "text" },
+      "referencePeriod": { "value": "single_duty", "status": "confirmed", "unit": "text" },
+      "deadheadTreatment": { "value": "counts_as_driving_time", "status": "confirmed", "unit": "text" },
+      "roundingRule": { "value": "ceil_to_full_minute", "status": "confirmed", "unit": "text" },
+      "mixedModeHandling": { "value": "evaluate_all_jnv_modes_under_same_rule", "status": "confirmed", "unit": "text" }
+    },
+    "dataStrategy": {
+      "sourcePriority": { "value": ["umlauftafel", "schedule_structured", "schedule_fallback"], "status": "confirmed", "unit": "none" },
+      "umlauftafelIsPrimary": { "value": true, "status": "confirmed", "unit": "flag" },
+      "scheduleMayNotOverrideUmlauftafel": { "value": true, "status": "confirmed", "unit": "flag" },
+      "doubleCountingForbidden": { "value": true, "status": "confirmed", "unit": "flag" },
+      "insufficientDataResult": { "value": "INCONCLUSIVE", "status": "confirmed", "unit": "text" }
+    },
+    "fallbackIndicators": {
+      "indicators": { "value": ["noExplicitBlockPause", "paidTimeEqualsDutyTime"], "status": "confirmed", "unit": "none" },
+      "candidateStatusOnIndicator": { "value": "probable", "status": "confirmed", "unit": "text" },
+      "indicatorMayProduceVerdict": { "value": false, "status": "confirmed", "unit": "flag" },
+      "indicatorMayInventTurnaround": { "value": false, "status": "confirmed", "unit": "flag" },
+      "unprovableAbsenceResult": { "value": "inconclusive", "status": "confirmed", "unit": "text" },
+      "paidTimeComparisonTolerance": { "value": 0, "status": "confirmed", "unit": "minutes" }
+    },
+    "relations": {
+      "independentOfContinuousDrivingRule": { "value": true, "status": "confirmed", "unit": "flag" },
+      "continuousDrivingRuleSetId": { "value": "shared-driving-time-limit-v1", "status": "confirmed", "unit": "text" }
+    },
+    "openParameters": {
+      "value": [],
+      "status": "confirmed",
+      "unit": "none"
+    }
+  }
+}

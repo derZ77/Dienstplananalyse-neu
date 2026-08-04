@@ -1,0 +1,34 @@
+{
+  "id": "jes-v1-warnings",
+  "priority": 100,
+  "rules": [
+    {
+      "id": "jes-warning-missing-departure-time",
+      "priority": 100,
+      "target": "activities",
+      "match": { "field": "departureTime.value", "operator": "exact", "value": null },
+      "action": { "type": "warning", "message": "Fehlende Abfahrtszeit" }
+    },
+    {
+      "id": "jes-warning-missing-arrival-time",
+      "priority": 99,
+      "target": "activities",
+      "match": { "field": "arrivalTime.value", "operator": "exact", "value": null },
+      "action": { "type": "warning", "message": "Fehlende Ankunftszeit" }
+    },
+    {
+      "id": "jes-warning-unknown-activity",
+      "priority": 98,
+      "target": "activities",
+      "match": { "field": "activityType", "operator": "exact", "value": "unknown" },
+      "action": { "type": "warning", "message": "Unbekannte Tätigkeit" }
+    },
+    {
+      "id": "jes-warning-ambiguous-activity",
+      "priority": 97,
+      "target": "activities",
+      "match": { "field": "rawActivity", "operator": "regex", "value": "^(?=.*Pause)(?=.*Bereitschaft).*$", "ignoreCase": true },
+      "action": { "type": "warning", "message": "Mehrdeutige Tätigkeit" }
+    }
+  ]
+}

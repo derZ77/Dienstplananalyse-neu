@@ -1,0 +1,14 @@
+{
+  "name": "dienstplananalyse-app",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Dienstplananalyse PWA – lokaler Datenschutzmodus (statisch, keine externen Laufzeitressourcen).",
+  "main": "scripts/dev-server.mjs",
+  "scripts": {
+    "start": "node scripts/dev-server.mjs",
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node --test tests/*.test.js",
+    "check": "node --test tests/*.test.js"
+  }
+}

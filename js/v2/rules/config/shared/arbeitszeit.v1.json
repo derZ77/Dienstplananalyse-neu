@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "ruleSetId": "shared-arbeitszeit-v1",
+  "organization": "SHARED",
+  "status": "draft",
+  "validFrom": null,
+  "sourceReferences": ["docs/bv-check-catalog.md (BV005)", "FACHREGELVERTRAG-DIENSTPLANANALYSE-V0.1.md"],
+  "approvedBy": null,
+  "parameters": {
+    "maxPaidTimeWeekdayMinutes": { "value": 510, "status": "confirmed", "unit": "minutes" },
+    "maxPaidTimeWeekendMinutes": { "value": 540, "status": "confirmed", "unit": "minutes" },
+    "workingTimeBreakAfterMinutes": { "value": 360, "status": "confirmed", "unit": "minutes" }
+  }
+}
