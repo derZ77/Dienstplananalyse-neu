@@ -23,6 +23,10 @@ export const EXCEL_CLASSIFICATION_WARNING_CODES = Object.freeze([
 const UMLAUF_LABELS = ['Beginn:', 'Ende:', 'Startpunkt:', 'Endpunkt:', 'Fahrzeugtyp:', 'Seite:'];
 const VEHICLE_RE = /^(TLV\d*|GT\d*|NGT\d*|SL|SG|GN|EN|EG)$/i;
 const CODE_SHEET_RE = /^\d{4,5}$/;
+const TEN_COLUMN_SCHEDULE_HEADER = Object.freeze([
+  'Dienst', 'Umlauf', 'Tätigkeit', 'Abfahrt', 'Abfahrtsort',
+  'Ankunft', 'Ankunftsort', 'Beginn', 'Ende', 'Bez. Zeit'
+]);
 
 function forEachCell(sheets, visit) {
   for (const sheet of sheets) {
@@ -62,8 +66,13 @@ export function classifyExcelDocument(workbook) {
   const codeSheets = sheetNames.filter(name => CODE_SHEET_RE.test(String(name))).length;
   const labelCount = labels.size;
 
-  // Legacy 10-column Excel schedule header (excel-canonical-adapter.detectExcelLayout).
-  const legacyHeader = sheets.some(sheet => {
+  // The real JES export carries a title row ABOVE the full, fixed ten-column
+  // schedule header. Match every row, but only the complete ordered signature —
+  // three generic words anywhere in a workbook never unlock automatic routing.
+  const jesTenColumnHeader = sheets.some(sheet => (sheet.rows || []).some(row =>
+    TEN_COLUMN_SCHEDULE_HEADER.every((label, index) => String(row?.[index] ?? '').trim() === label)
+  ));
+  const legacyHeader = jesTenColumnHeader || sheets.some(sheet => {
     const first = (sheet.rows?.[0] || []).map(c => String(c).trim());
     return first.includes('Dienst') && first.includes('Umlauf') && first.includes('Tätigkeit');
   });
@@ -101,7 +110,7 @@ export function classifyExcelDocument(workbook) {
     return { type: 'wagenkarte', subtype: null, mode: null, confidence: EXCEL_CLASSIFICATION_CONFIDENCE.EXACT, ...base };
   }
   if (legacyStrong) {
-    return { type: 'legacy_excel_schedule', subtype: null, mode: null, confidence: EXCEL_CLASSIFICATION_CONFIDENCE.EXACT, ...base };
+    return { type: 'legacy_excel_schedule', subtype: jesTenColumnHeader ? 'jes_schedule_excel' : null, mode: null, confidence: EXCEL_CLASSIFICATION_CONFIDENCE.EXACT, ...base };
   }
 
   // Several supporting Umlauftafel signals but a required one missing → probable (not routed).
