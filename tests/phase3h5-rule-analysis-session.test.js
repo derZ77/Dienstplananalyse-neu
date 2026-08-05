@@ -27,6 +27,17 @@ function spySession({ matching = exactMatching, importCompanion = acceptCompanio
 const primary = () => ({ canonicalSchedule: { type: 'CanonicalSchedule' } });
 const file = (name = 'p.pdf') => ({ name });
 
+test('normalisiert den Canonical Schedule eines Legacy-Excel-ImportResult für den gemeinsamen Pfad', () => {
+  const session = createMultiDocumentSession();
+  const canonicalSchedule = { type: 'CanonicalSchedule', services: [], activities: [], interruptions: [], warnings: [] };
+  const state = session.setPrimaryResult({
+    classification: { type: 'legacy_excel_schedule', confidence: 'exact' },
+    importResult: { ok: true, data: canonicalSchedule }
+  }, file('plan.xlsx'));
+
+  assert.equal(state.primaryImport.canonicalSchedule, canonicalSchedule);
+});
+
 test('without an exact match the rule analysis does not run and no CheckReport is produced', async () => {
   const { session, calls } = spySession({ matching: blockedMatching });
   session.setPrimaryResult(primary(), file());

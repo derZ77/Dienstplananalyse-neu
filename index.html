@@ -2945,7 +2945,11 @@
 
 		document.getElementById('file-input').addEventListener('change', function() {
 			const file = this.files[0];
-			if (file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''))) {
+			// Phase 5.2: parsing and all block writes are performed by the shared
+			// CanonicalSchedule orchestrator in the module bootstrap below. Keep this
+			// legacy listener only for the user-visible file selection status.
+			if (file) {
+				document.getElementById('file-result').textContent = `Datei: ${file.name}`;
 				return;
 			}
 			const blocks = [

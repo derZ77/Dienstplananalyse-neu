@@ -3,6 +3,8 @@ import { createMultiDocumentSession } from './import/multi-document-import-contr
 import { createCheckExplorerSessionBridge } from './explorer/check-explorer-session-bridge.js';
 import { deriveReportContext } from './report/check-report-view-model.js';
 import { createDienstplanExportController } from './export/dienstplan-export-ui.js';
+import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
+import { clearOriginalBlocks, renderOriginalBlocks } from './blocks/block-renderer.js';
 
 // Phase 3F: one memory-only session holds the primary (captured from the unchanged
 // single import) and an optional companion. No storage, no network, no matching.
@@ -52,6 +54,12 @@ function render(state) {
   setStatus(combinationStatusEl, state.combinationStatus);
   setStatus(matchingStatusEl, state.matchingStatus);
   setStatus(ruleAnalysisStatusEl, state.ruleAnalysisStatus);
+  const canonicalSchedule = state?.primaryImport?.canonicalSchedule;
+  if (canonicalSchedule?.type === 'CanonicalSchedule') {
+    renderOriginalBlocks(createOriginalBlockViewModel(canonicalSchedule));
+  } else if (!state?.primaryImport) {
+    clearOriginalBlocks();
+  }
   // The existing CheckReport is handed over unchanged; a missing one leaves the explorer empty.
   explorerBridge.setCheckReport(state.checkReport);
   // Phase 3I.35: the report also gets the context the session ALREADY holds — the schedule as the

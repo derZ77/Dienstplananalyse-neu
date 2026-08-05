@@ -87,6 +87,18 @@ function isStandaloneJesSchedule(primaryImport, companionImport) {
     && primaryImport?.canonicalSchedule?.type === 'CanonicalSchedule';
 }
 
+// PDF imports already expose `canonicalSchedule` at their top level. The existing
+// Excel adapter deliberately keeps its payload under `importResult.data`; normalize
+// that transport difference at the session boundary so every downstream consumer
+// receives one source-neutral primary shape.
+function normalizePrimaryImport(result) {
+  if (result?.canonicalSchedule?.type === 'CanonicalSchedule') return result;
+  const schedule = result?.importResult?.data;
+  return schedule?.type === 'CanonicalSchedule'
+    ? { ...result, canonicalSchedule: schedule }
+    : result;
+}
+
 /**
  * @param {{ importCompanion?: (file:any)=>Promise<any>, buildBundle?: (args:any)=>any,
  *           runBaseAnalysis?: (args:any)=>Promise<any>, runJesBaseAnalysis?: (args:any)=>Promise<any>, generateBundleId?: ()=>string,
@@ -160,7 +172,7 @@ export function createMultiDocumentSession({
   function setPrimaryResult(result, file) {
     if (!file) { state.primaryImport = null; state.primaryFileName = null; return rebuild(); } // deselected → clear
     if (result == null) return snapshot();                                // failed/unsupported → keep previous valid primary
-    state.primaryImport = result;
+    state.primaryImport = normalizePrimaryImport(result);
     state.primaryFileName = typeof file.name === 'string' ? file.name : null;
     return rebuild();
   }
