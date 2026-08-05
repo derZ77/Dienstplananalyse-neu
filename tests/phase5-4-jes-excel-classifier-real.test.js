@@ -1,10 +1,11 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 
-const EXCEL = '/Volumes/Philips SSD/docker/openclaw/workspace/20260713_Dienstuebersicht_FDA_v2.xlsx';
+const EXCEL = FIXTURES.jesTenColumnScheduleXlsx;
 
 function installXlsx() {
   if (globalThis.XLSX?.read) return;

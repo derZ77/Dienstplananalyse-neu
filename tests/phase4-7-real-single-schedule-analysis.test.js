@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { FIXTURES } from './fixtures/paths.js';
 
 globalThis.DOMMatrix ||= class DOMMatrix {};
 
@@ -9,10 +10,8 @@ const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controll
 const { createMultiDocumentSession } = await import('../js/v2/import/multi-document-import-controller.js');
 const { deriveReportContext } = await import('../js/v2/report/check-report-view-model.js');
 
-const ROOT = new URL('../acceptance-data/', import.meta.url);
-
-async function fileOf(relativePath) {
-  const bytes = new Uint8Array(await readFile(new URL(relativePath, ROOT)));
+async function fileOf(path) {
+  const bytes = new Uint8Array(await readFile(path));
   return {
     name: 'selected-by-user.pdf',
     type: 'application/pdf',
@@ -20,15 +19,15 @@ async function fileOf(relativePath) {
   };
 }
 
-async function importAndAnalyze(relativePath) {
-  const primaryImport = await analyzePdfImport(await fileOf(relativePath));
+async function importAndAnalyze(path) {
+  const primaryImport = await analyzePdfImport(await fileOf(path));
   const session = createMultiDocumentSession();
   session.setPrimaryResult(primaryImport, { name: 'selected-by-user.pdf' });
   return { primaryImport, state: await session.analyzeRules() };
 }
 
 test('the JNV acceptance PDF carries its profile context and a completed basis-analysis status', async () => {
-  const { primaryImport, state } = await importAndAnalyze('JNV/Dienstplan.pdf');
+  const { primaryImport, state } = await importAndAnalyze(FIXTURES.jnvSchedulePdf);
   const context = deriveReportContext(state);
 
   assert.equal(primaryImport.detection.profile.id, 'beu-stadtbus-v1');
@@ -39,8 +38,8 @@ test('the JNV acceptance PDF carries its profile context and a completed basis-a
 });
 
 test('both JES acceptance PDFs carry JES context and an empty completed basis CheckReport', async () => {
-  for (const relativePath of ['JES/20260817_Übersicht_Schule_Jena_FDA.pdf', 'JES/Dienstplan.pdf']) {
-    const { primaryImport, state } = await importAndAnalyze(relativePath);
+  for (const path of [FIXTURES.jesSchoolAcceptancePdf, FIXTURES.jesAcceptancePdf]) {
+    const { primaryImport, state } = await importAndAnalyze(path);
     const context = deriveReportContext(state);
 
     assert.equal(primaryImport.detection.profile.id, 'jes-regionalbus-v1');

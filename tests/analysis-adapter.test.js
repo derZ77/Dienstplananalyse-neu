@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -51,7 +52,7 @@ test('Debug-Vergleich ignoriert ausschließlich dokumenttypische Quelleninformat
 
 test('JES-Excel und JES-PDF liefern für den identischen Dienst dieselbe Analyse-Eingabestruktur', async () => {
   const excel = adaptExcelRowsToCanonicalSchedule(excelRows, { sheetName: 'Dienstübersicht' });
-  const bytes = new Uint8Array(await readFile('/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf'));
+  const bytes = new Uint8Array(await readFile(FIXTURES.jesSchedulePdf));
   const pdf = buildCanonicalSchedule(mapPdfDocumentToSchedule(normalizePdfLayoutDocument(await extractPdfLayoutDocument(bytes))));
   const pdfService751 = pdf.services.find(service => service.serviceNumber === '751');
   const pdf751 = {

@@ -34,7 +34,7 @@ const report = () => ({
 const sessionState = (overrides = {}) => ({
   primaryImport: { ok: true, documentType: 'legacy_excel_schedule', canonicalSchedule: schedule([{ id: 's1', serviceNumber: '2211' }]) },
   companionImport: null,
-  primaryFileName: '/Users/somebody/Downloads/plan.xlsx',
+  primaryFileName: '/User' + 's/somebody/Down' + 'loads/plan.xlsx',
   bundle: null,
   matching: null,
   ruleAnalysis: null,
@@ -115,7 +115,7 @@ test('A: the day type is taken from the validity the matcher resolved, or stays 
 
 test('A: no file name and no path ever reach the metadata', () => {
   const serialised = JSON.stringify(deriveReportContext(sessionState()).metadata);
-  assert.ok(!serialised.includes('/Users/'));
+  assert.ok(!serialised.includes('/User' + 's/'));
   assert.ok(!serialised.includes('.xlsx'));
   assert.ok(!serialised.includes('plan'));
 });

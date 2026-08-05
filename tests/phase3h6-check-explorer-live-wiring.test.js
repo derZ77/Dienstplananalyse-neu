@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -147,8 +148,8 @@ try {
 } catch { /* ignore */ }
 
 test('the real reference pair produces no CheckReport, so the explorer stays in its empty state', async (t) => {
-  const PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-  const XLSX_PATH = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
+  const PDF = FIXTURES.jnvSchedulePdf;
+  const XLSX_PATH = FIXTURES.busUmlauftafelXlsx;
   const present = async (p) => { try { await access(p); return true; } catch { return false; } };
   if (!(xlsxReady && (await present(PDF)) && (await present(XLSX_PATH)))) return t.skip('real references / XLSX not available');
 

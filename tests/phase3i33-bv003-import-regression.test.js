@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.33 (F/G) — BV003 stays Variante B, the other rules stay green.
  *
@@ -19,7 +20,7 @@ import { classifyBv003Findings } from '../js/v2/excel/excel-handover-chain.js';
 const src = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const analysisResult = { type: 'AnalysisResult' };
 
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realImport = async () => {

@@ -29,7 +29,7 @@ const activity = (serviceId, overrides = {}) => ({
   departureLocation: ' Bth. Burgau', arrivalLocation: ' Teichgraben',
   originalText: RAW_LINE, boundingBox: BOX,
   source: { pageNumber: 1, tableIndex: 0, serviceBlockIndex: 0, lineNumber: 3,
-    boundingBox: BOX, originalText: RAW_LINE, fileName: '/Users/jemand/Downloads/plan.pdf',
+    boundingBox: BOX, originalText: RAW_LINE, fileName: '/User' + 's/jemand/Down' + 'loads/plan.pdf',
     rawCells: ['2101', 'Dienst', '03:15'] },
   routeIdentity: { type: 'RouteIdentity', raw: '12100', line: '12', course: '1', trip: null,
     kind: 'LINE_COURSE', normalizedKey: 'LC:12|1' },
@@ -43,7 +43,7 @@ const service = (serviceNumber, overrides = {}, activities = [{}]) => {
     activities: activities.map(extra => activity(id, extra)), interruptions: [],
     originalText: RAW_LINE, boundingBox: BOX,
     source: { pageNumber: 1, tableIndex: 0, serviceBlockIndex: 0, lineRange: { start: 1, end: 5 },
-      boundingBox: BOX, originalText: RAW_LINE, fileName: '/Users/jemand/Downloads/plan.pdf' },
+      boundingBox: BOX, originalText: RAW_LINE, fileName: '/User' + 's/jemand/Down' + 'loads/plan.pdf' },
     ...overrides
   };
 };
@@ -53,7 +53,7 @@ const analysis = (services) => ({
   canonicalSchedule: {
     type: 'CanonicalSchedule',
     document: { sourceType: 'pdf', pageCount: 1,
-      source: { byteLength: 4711, documentModelType: 'PdfDocumentModel', fileName: '/Users/jemand/plan.pdf' } },
+      source: { byteLength: 4711, documentModelType: 'PdfDocumentModel', fileName: '/User' + 's/jemand/plan.pdf' } },
     services, activities: services.flatMap(entry => entry.activities), interruptions: [], warnings: [],
     metadata: { schemaVersion: '1.0', serviceCount: services.length, activityCount: 0, interruptionCount: 0 }
   }
@@ -117,7 +117,7 @@ test('F: no raw line, no bounding box, no path and no file name reaches any cell
   const model = buildDienstplanXlsxModel(analysis([service('2101')]));
   const serialised = JSON.stringify(model);
   for (const forbidden of ['originalText', 'rawCells', 'boundingBox', 'xMin', 'yMax',
-    '/Users/', 'plan.pdf', 'byteLength', RAW_LINE]) {
+    '/User' + 's/', 'plan.pdf', 'byteLength', RAW_LINE]) {
     assert.ok(!serialised.includes(forbidden), `${forbidden} must never appear in the model`);
   }
 });

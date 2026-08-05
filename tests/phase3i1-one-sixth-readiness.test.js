@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -82,7 +83,7 @@ try {
 } catch { /* ignore */ }
 
 test('the real Umlauftafel provides mode, lines and stop names but NO distances', async (t) => {
-  const XLSX_PATH = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
+  const XLSX_PATH = FIXTURES.busUmlauftafelXlsx;
   const present = async (p) => { try { await access(p); return true; } catch { return false; } };
   if (!(xlsxReady && (await present(XLSX_PATH)))) return t.skip('real Umlauftafel / XLSX not available');
 

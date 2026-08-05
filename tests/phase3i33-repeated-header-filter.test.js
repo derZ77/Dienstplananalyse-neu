@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.33 (D/E) — repeated page headers must not become activities.
  *
@@ -107,7 +108,7 @@ test('D: the ten-column layout is unaffected by the filter', () => {
 // =====================================================================================
 // E — the real plan
 // =====================================================================================
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realRows = () => {

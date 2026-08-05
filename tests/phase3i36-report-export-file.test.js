@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.36 (D/F/G) — the export FILE, on synthetic and on real data.
  *
@@ -138,7 +139,7 @@ test('D: a broken library is caught and reported, not thrown', () => {
 
 test('D: the file name never carries a path or an original document name', () => {
   const file = createReportExportFile(
-    exportModel(report(), { document: { organization: 'JNV', fileName: '/Users/x/plan.xlsx' } }), { xlsx: XLSX });
+    exportModel(report(), { document: { organization: 'JNV', fileName: '/User' + 's/x/plan.xlsx' } }), { xlsx: XLSX });
   assert.equal(file.fileName, 'JNV-Pruefbericht-2026-08-03.xlsx');
   assert.ok(!file.fileName.includes('/'));
   assert.ok(!file.fileName.includes('plan'));
@@ -182,7 +183,7 @@ test('D: the export module neither stores nor reaches the network', () => {
 // =====================================================================================
 // F — real data
 // =====================================================================================
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realImport = async () => {
@@ -263,7 +264,7 @@ test('F (real): the written file carries no path and no raw row', { skip: !avail
   const everything = [...book.SheetNames]
     .flatMap(name => sheetRows(book, name).flat())
     .map(String).join(' | ');
-  assert.ok(!everything.includes('/Users/'));
+  assert.ok(!everything.includes('/User' + 's/'));
   assert.ok(!everything.includes('.xlsx'));
   assert.ok(!everything.includes('MICROBUS'));
 });

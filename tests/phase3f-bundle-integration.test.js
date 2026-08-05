@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -20,8 +21,8 @@ const { handleImport } = await import('../js/v2/import/pdf-import-controller.js'
 const { createBundleFromImports } = await import('../js/v2/import/analysis-bundle-controller.js');
 const { createMultiDocumentSession } = await import('../js/v2/import/multi-document-import-controller.js');
 
-const JNV_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-const BUS_XLSX = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
+const JNV_PDF = FIXTURES.jnvSchedulePdf;
+const BUS_XLSX = FIXTURES.busUmlauftafelXlsx;
 const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';

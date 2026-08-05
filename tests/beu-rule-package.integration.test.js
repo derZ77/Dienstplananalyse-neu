@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ const { mapPdfDocumentToSchedule } = await import('../js/v2/pdf/schedule-mapper.
 const { buildCanonicalSchedule } = await import('../js/v2/pdf/canonical-schedule-builder.js');
 const { applyRuleGroups } = await import('../js/v2/rules/rule-engine.js');
 
-const beuPdfPath = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+const beuPdfPath = FIXTURES.jnvSchedulePdf;
 const ruleDirectory = new URL('../js/v2/rules/beu/v1/', import.meta.url);
 const jesRuleDirectory = new URL('../js/v2/rules/jes/v1/', import.meta.url);
 

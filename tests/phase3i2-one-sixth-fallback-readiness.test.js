@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -77,7 +78,7 @@ test('the audit documents the block-pause limitation and the DECIDED crediting r
 
 // ===== real-schedule readiness probe (honest, skips when unavailable) =====
 test('the real JNV schedule provides duty span and paid time but NO activity classification', async (t) => {
-  const PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+  const PDF = FIXTURES.jnvSchedulePdf;
   const present = async (p) => { try { await access(p); return true; } catch { return false; } };
   if (!(await present(PDF))) return t.skip('real JNV schedule not available');
   globalThis.DOMMatrix ||= class DOMMatrix {};

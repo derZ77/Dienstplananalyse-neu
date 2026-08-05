@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.3 (C) — the projection of the REAL JNV Stadtbus plan, measured through the real chain.
  *
@@ -15,7 +16,7 @@ const {
   buildDienstplanXlsxModel, DIENSTPLAN_COLUMNS, DIENSTE_COLUMNS, MODEL_WARNING_CODES
 } = await import('../js/v2/export/dienstplan-xlsx-model.js');
 
-const JNV_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+const JNV_PDF = FIXTURES.jnvSchedulePdf;
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 const skip = !(await present(JNV_PDF)) && 'JNV reference plan not present';
 

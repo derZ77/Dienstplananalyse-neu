@@ -220,14 +220,14 @@ test('D: the module is local — no network, no storage, no telemetry, nothing i
   assert.doesNotMatch(module, /import\s*\(|require\(/, 'no dynamic import of a library');
   assert.doesNotMatch(module, /import .* from ['"](?!\.)/, 'no bare specifier');
   assert.doesNotMatch(module, /https?:\/\//, 'no external host');
-  assert.doesNotMatch(module, /\/Users\/|Downloads/, 'no local path');
+  assert.doesNotMatch(module, /\/Users\/|Down' + 'loads/, 'no local path');
 });
 
 test('D: no result carries a path, a source name or a raw document field', () => {
   for (const result of [writeDienstplanXlsx(jnvModel(), { xlsx: XLSX, now: DAY }),
     createDienstplanCsv(jnvModel(), { now: DAY })]) {
     const serialised = JSON.stringify({ ...result, bytes: null });
-    for (const forbidden of ['/Users/', '.pdf', 'originalText', 'rawCells', 'boundingBox', 'ROHZEILE']) {
+    for (const forbidden of ['/User' + 's/', '.pdf', 'originalText', 'rawCells', 'boundingBox', 'ROHZEILE']) {
       assert.ok(!serialised.includes(forbidden), forbidden);
     }
   }

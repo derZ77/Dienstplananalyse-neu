@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -20,8 +21,8 @@ const { loadUmlauftafelDocumentFromXlsx, detectMode, deriveValidity } = await im
 const { interpretUmlaufSheet } = await import('../js/v2/umlauftafel/xlsx-layout.js');
 const { validateUmlauftafelDocument } = await import('../js/v2/umlauftafel/umlauftafel-validation.js');
 
-const BUS = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
-const TRAM = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FS_20260629_MoFr.xlsx';
+const BUS = FIXTURES.busUmlauftafelXlsx;
+const TRAM = FIXTURES.tramUmlauftafelXlsx;
 const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 const ready = async (p) => xlsxReady && (await present(p));
 const loadReal = (p) => loadUmlauftafelDocumentFromXlsx(new Uint8Array(readFileSync(p)), { sourceName: p.split('/').pop() });

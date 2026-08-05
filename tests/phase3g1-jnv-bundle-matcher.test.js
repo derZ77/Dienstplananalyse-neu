@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -134,7 +135,7 @@ test('buildScheduleMatchView extracts distinct Umlauf codes (exact strings) from
 
 // ===== real JNV reference (never skipped: falls back to a realistic synthetic doc) =====
 test('the matcher runs on a real (or realistic) JNV Umlauftafel and yields a valid structured result', async () => {
-  const BUS = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
+  const BUS = FIXTURES.busUmlauftafelXlsx;
   let circulations = umlauftafel('holidays', 'mo_fr', ['12100', '12200']).circulations;
   try {
     await access(BUS);

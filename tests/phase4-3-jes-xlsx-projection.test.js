@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.3 (D) — the projection of the REAL JES Regionalbus plan.
  *
@@ -15,7 +16,7 @@ const {
   buildDienstplanXlsxModel, DIENSTPLAN_COLUMNS, DIENSTE_COLUMNS, MODEL_WARNING_CODES
 } = await import('../js/v2/export/dienstplan-xlsx-model.js');
 
-const JES_PDF = '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf';
+const JES_PDF = FIXTURES.jesSchedulePdf;
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 const skip = !(await present(JES_PDF)) && 'JES reference plan not present';
 

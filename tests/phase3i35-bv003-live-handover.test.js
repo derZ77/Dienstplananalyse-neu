@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.35 (B/C) — the relief information and the affected-duty list in the live report.
  *
@@ -14,7 +15,7 @@ import { renderCheckReportHtml } from '../js/v2/report/check-report-view.js';
 import { createBv003Check } from '../js/v2/checks/bv/bv003.js';
 
 const analysisResult = { type: 'AnalysisResult' };
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realImport = async () => {

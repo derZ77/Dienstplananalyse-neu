@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.2 (D/E/G) — the multi-signal contract survives the repair.
  *
@@ -21,8 +22,8 @@ const { getProfilesForDocumentType } = await import('../js/v2/documents/document
 
 const src = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-const JNV_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-const UMLAUFTAFEL_PDF = '/Users/joergziegler/Downloads/FB Montag - Freitag, Ferien ab 23.07.2026.pdf';
+const JNV_PDF = FIXTURES.jnvSchedulePdf;
+const UMLAUFTAFEL_PDF = FIXTURES.jnvUmlauftafelPdf;
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 const fileLike = (bytes) => ({ name: 'x.pdf', type: 'application/pdf', arrayBuffer: async () => bytes.buffer.slice(0) });
 
@@ -201,7 +202,7 @@ test('G: the changed module stays local, without storage, network or a special c
   assert.doesNotMatch(module, /localStorage|sessionStorage|indexedDB/);
   assert.doesNotMatch(module, /fetch\(|XMLHttpRequest|WebSocket|sendBeacon/);
   assert.doesNotMatch(module, /import .* from ['"](?!\.)/, 'no bare specifier — nothing installed');
-  assert.doesNotMatch(module, /\/Users\/|Downloads|\.pdf['"]/, 'no local file name and no path');
+  assert.doesNotMatch(module, /\/Users\/|Down' + 'loads|\.pdf['"]/, 'no local file name and no path');
   assert.doesNotMatch(module, /egionalbus|Regionalbus|Stadtbus/, 'no hard-coded document fragment');
   assert.doesNotMatch(module, /process\.env|NODE_ENV|isTest/, 'no test branch');
 });

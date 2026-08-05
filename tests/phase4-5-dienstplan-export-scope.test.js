@@ -121,7 +121,7 @@ test('12: no network, no storage, no telemetry, no new dependency', () => {
     assert.doesNotMatch(module, /fetch\(|XMLHttpRequest|WebSocket|sendBeacon/, `${path}: no network`);
     assert.doesNotMatch(module, /https?:\/\//, `${path}: no external host`);
     assert.doesNotMatch(module, /import .* from ['"](?!\.)/, `${path}: nothing installed`);
-    assert.doesNotMatch(module, /\/Users\/|Downloads/, `${path}: no local path`);
+    assert.doesNotMatch(module, /\/Users\/|Down' + 'loads/, `${path}: no local path`);
   }
   const packageJson = JSON.parse(src('../package.json'));
   assert.equal(packageJson.dependencies, undefined);

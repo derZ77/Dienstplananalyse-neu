@@ -8,14 +8,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { FIXTURES } from './fixtures/paths.js';
 
 globalThis.DOMMatrix ||= class DOMMatrix {};
 
 const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');
 const { createMultiDocumentSession } = await import('../js/v2/import/multi-document-import-controller.js');
 
-const JES_ACCEPTANCE_PDF = new URL('../acceptance-data/JES/20260817_Übersicht_Schule_Jena_FDA.pdf', import.meta.url);
-const JNV_ACCEPTANCE_PDF = new URL('../acceptance-data/JNV/Dienstplan.pdf', import.meta.url);
+const JES_ACCEPTANCE_PDF = FIXTURES.jesSchoolAcceptancePdf;
+const JNV_ACCEPTANCE_PDF = FIXTURES.jnvSchedulePdf;
 
 async function acceptanceFile(url) {
   const bytes = new Uint8Array(await readFile(url));

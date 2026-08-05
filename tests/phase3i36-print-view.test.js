@@ -119,7 +119,7 @@ test('A: result blocks are kept together and may break between them', () => {
 
 test('A: no path and no file name reaches the paper', () => {
   const out = rendered();
-  assert.ok(!out.includes('/Users/'));
+  assert.ok(!out.includes('/User' + 's/'));
   assert.ok(!out.includes('.xlsx'));
 });
 

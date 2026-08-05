@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -23,8 +24,8 @@ const { createBundleFromImports } = await import('../js/v2/import/analysis-bundl
 const { runJnvStructuralMatching } = await import('../js/v2/matching/jnv-matching-controller.js');
 const { MATCH_STATUSES } = await import('../js/v2/matching/match-contract.js');
 
-const PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-const XLSX_PATH = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
+const PDF = FIXTURES.jnvSchedulePdf;
+const XLSX_PATH = FIXTURES.busUmlauftafelXlsx;
 const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const fileOf = (p, type) => ({ name: p.split('/').pop(), type, arrayBuffer: async () => new Uint8Array(readFileSync(p)).buffer.slice(0) });

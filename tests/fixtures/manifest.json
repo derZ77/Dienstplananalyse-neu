@@ -1,6 +1,6 @@
 {
   "manifestVersion": "1.0",
-  "note": "Phase 2 fixture contract. No real personal data. The JNV Stadtbus schedule PDF reference exists (technical profile beu-stadtbus-v1) but lives outside the repository. The JNV Umlaufkarte (companion) is still missing.",
+  "note": "Versioned Phase 5.6 fixture contract. No personal data. All available binary references are resolved through paths.js.",
   "sourceKinds": ["anonymized", "synthetic", "contract-only"],
   "statuses": ["available", "missing", "planned", "restricted"],
   "expectedDirectories": ["legacy-excel", "jes", "jnv", "wagenkarte", "umlaufkarte", "bundles", "synthetic"],
@@ -19,20 +19,18 @@
       "documentType": "jes_schedule_pdf",
       "organization": "JES",
       "sourceKind": "anonymized",
-      "status": "missing",
+      "status": "available",
       "profileId": "jes-regionalbus-v1",
-      "path": "jes/jes-schedule-basic.pdf",
-      "reason": "reference PDF outside repository (~/Downloads); must be anonymized before versioning"
+      "path": "jes-schedule.pdf"
     },
     {
       "id": "jnv-stadtbus-schedule-basic",
       "documentType": "jnv_schedule_pdf",
       "organization": "JNV",
       "sourceKind": "anonymized",
-      "status": "restricted",
+      "status": "available",
       "profileId": "beu-stadtbus-v1",
-      "path": "jnv/jnv-stadtbus-schedule-basic.pdf",
-      "reason": "Real JNV Stadtbus reference exists (detected as technical profile beu-stadtbus-v1) but lives outside the repository (~/Downloads); must be anonymized before versioning. The JNV primary profile is present — this is NOT a missing reference."
+      "path": "jnv-schedule.pdf"
     },
     {
       "id": "wagenkarte-basic",
@@ -61,6 +59,60 @@
       "status": "planned",
       "profileId": null,
       "note": "Combined JNV schedule + Umlaufkarte bundle fixture (Phase 3)."
+    },
+    {
+      "id": "legacy-schedule-full",
+      "documentType": "legacy_excel_schedule",
+      "organization": "LEGACY",
+      "sourceKind": "anonymized",
+      "status": "available",
+      "profileId": null,
+      "path": "legacy-schedule.xlsx"
+    },
+    {
+      "id": "jes-ten-column-schedule",
+      "documentType": "legacy_excel_schedule",
+      "organization": "JES",
+      "sourceKind": "anonymized",
+      "status": "available",
+      "profileId": null,
+      "path": "jes-ten-column-schedule.xlsx"
+    },
+    {
+      "id": "jes-acceptance-schedule",
+      "documentType": "jes_schedule_pdf",
+      "organization": "JES",
+      "sourceKind": "anonymized",
+      "status": "available",
+      "profileId": "jes-regionalbus-v1",
+      "path": "jes-acceptance.pdf"
+    },
+    {
+      "id": "jes-school-acceptance-schedule",
+      "documentType": "jes_schedule_pdf",
+      "organization": "JES",
+      "sourceKind": "anonymized",
+      "status": "available",
+      "profileId": "jes-regionalbus-v1",
+      "path": "jes-school-acceptance.pdf"
+    },
+    {
+      "id": "bus-umlauftafel",
+      "documentType": "umlauftafel",
+      "organization": "JNV",
+      "sourceKind": "anonymized",
+      "status": "available",
+      "profileId": null,
+      "path": "bus-umlauftafel.xlsx"
+    },
+    {
+      "id": "tram-umlauftafel",
+      "documentType": "umlauftafel",
+      "organization": "JNV",
+      "sourceKind": "anonymized",
+      "status": "available",
+      "profileId": null,
+      "path": "tram-umlauftafel.xlsx"
     }
   ]
 }

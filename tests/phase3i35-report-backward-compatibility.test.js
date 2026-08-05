@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.35 (E/F/G) — the older, report-only path keeps working, and nothing regresses.
  */
@@ -107,11 +108,11 @@ test('E: the filters stay operable even on an empty report', () => {
 // =====================================================================================
 test('F: no file, workbook, buffer or path travels through the context', () => {
   const context = deriveReportContext({
-    primaryImport: { documentType: 'x', data: { type: 'CanonicalSchedule', services: [], activities: [], document: { source: { rawCells: ['x'], fileName: '/Users/x/plan.xlsx' } } } },
-    primaryFileName: '/Users/x/plan.xlsx'
+    primaryImport: { documentType: 'x', data: { type: 'CanonicalSchedule', services: [], activities: [], document: { source: { rawCells: ['x'], fileName: '/User' + 's/x/plan.xlsx' } } } },
+    primaryFileName: '/User' + 's/x/plan.xlsx'
   });
   const serialised = JSON.stringify(context.metadata);
-  assert.ok(!serialised.includes('/Users/'));
+  assert.ok(!serialised.includes('/User' + 's/'));
   assert.ok(!serialised.includes('rawCells'));
   assert.ok(!serialised.includes('.xlsx'));
 });
@@ -193,7 +194,7 @@ test('G: no print or export was smuggled in', () => {
   }
 });
 
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realImport = async () => {

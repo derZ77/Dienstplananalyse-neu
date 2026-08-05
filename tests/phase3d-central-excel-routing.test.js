@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -20,9 +21,9 @@ try {
 const controllerSource = readFileSync(new URL('../js/v2/import/excel-import-controller.js', import.meta.url), 'utf8');
 const { handleImport } = await import('../js/v2/import/pdf-import-controller.js');
 
-const BUS = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
-const TRAM = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FS_20260629_MoFr.xlsx';
-const BEU_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+const BUS = FIXTURES.busUmlauftafelXlsx;
+const TRAM = FIXTURES.tramUmlauftafelXlsx;
+const BEU_PDF = FIXTURES.jnvSchedulePdf;
 const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 const ready = async (p) => xlsxReady && (await present(p));
 const statusEl = () => ({ hidden: false, textContent: '' });

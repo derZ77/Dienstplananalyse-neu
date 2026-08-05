@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.32 (C/D) — consistency of the handover chain, and its real aggregates.
  *
@@ -109,7 +110,7 @@ test('C: a schedule without any handover produces an empty, honest audit', () =>
 // =====================================================================================
 // D — the real plan, aggregated only
 // =====================================================================================
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const realSchedule = () => {
   const sandbox = { console };
   sandbox.global = sandbox; sandbox.globalThis = sandbox; sandbox.window = sandbox; sandbox.self = sandbox;

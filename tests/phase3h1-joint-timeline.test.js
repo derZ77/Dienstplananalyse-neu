@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -155,8 +156,8 @@ test('the joint timeline is deterministic, JSON-compatible, and does not mutate 
 
 // ===== real end-to-end (no skip: falls back to a realistic synthetic build) =====
 test('real JNV PDF + real Umlauftafel + real exact match → a valid joint timeline', async () => {
-  const PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-  const XLSX_PATH = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
+  const PDF = FIXTURES.jnvSchedulePdf;
+  const XLSX_PATH = FIXTURES.busUmlauftafelXlsx;
   const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 
   let result = build(); // realistic synthetic fallback

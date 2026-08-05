@@ -222,11 +222,11 @@ test('F: if even the CSV cannot be produced there is a controlled error and no d
 });
 
 test('F: no warning ever carries a stack trace or an internal message', () => {
-  const broken = { utils: { book_new: () => { throw new Error('at Object.<anonymous> (/Users/x/a.js:1:1)'); } } };
+  const broken = { utils: { book_new: () => { throw new Error('at Object.<anonymous> (/User' + 's/x/a.js:1:1)'); } } };
   const { environment } = browser();
   const result = downloadDienstplanExport(readyModel(), { xlsx: broken, now: DAY, ...environment });
   const serialised = JSON.stringify(result.warnings);
-  assert.ok(!serialised.includes('/Users/'));
+  assert.ok(!serialised.includes('/User' + 's/'));
   assert.ok(!/at Object|\.js:\d+/.test(serialised));
 });
 

@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.1 (A–D) — CONTRACT TEST for the not-yet-implemented Dienstplan-PDF → XLSX export.
  *
@@ -88,7 +89,7 @@ export const CONFIDENCE_LEVELS = Object.freeze(['exact', 'derived', 'inconclusiv
 
 const REFERENCE = {
   // An Umlauftafel PDF — in the reference set, explicitly OUT of scope for this export.
-  umlauftafel: '/Users/joergziegler/Downloads/FB Montag - Freitag, Ferien ab 23.07.2026.pdf'
+  umlauftafel: FIXTURES.jnvUmlauftafelPdf
 };
 const readable = (path) => { try { readFileSync(path); return true; } catch { return false; } };
 

@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
@@ -120,8 +121,8 @@ test('buildHardenedCanonicalSchedule adds a valid canonical + hardened for JNV',
 });
 
 // === Live import orchestrator (real reference PDFs, skipped if absent) ======
-const BEU_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-const JES_PDF = '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf';
+const BEU_PDF = FIXTURES.jnvSchedulePdf;
+const JES_PDF = FIXTURES.jesSchedulePdf;
 const fileLike = async (path) => { const bytes = new Uint8Array(await readFile(path)); return { name: path.split('/').pop(), type: 'application/pdf', arrayBuffer: async () => bytes.buffer.slice(0) }; };
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 

@@ -3,6 +3,8 @@ acceptance-data/
 *.pdf
 *.xlsx
 *.xls
+!tests/fixtures/*.pdf
+!tests/fixtures/*.xlsx
 .DS_Store
 
 # Node

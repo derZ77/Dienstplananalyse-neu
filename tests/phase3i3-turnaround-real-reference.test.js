@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,8 +10,8 @@ import { createContext, runInContext } from 'node:vm';
 import { detectTurnaroundCandidates } from '../js/v2/rules/one-sixth-turnaround-candidates.js';
 import { validateTurnaroundDetectionResult } from '../js/v2/rules/one-sixth-turnaround-validation.js';
 
-const BUS = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FB_20260706_Mo-Fr_Ferien.xlsx';
-const TRAM = '/Volumes/Philips SSD/docker/openclaw/workspace/PWA /Umlauftafeln/FS_20260629_MoFr.xlsx';
+const BUS = FIXTURES.busUmlauftafelXlsx;
+const TRAM = FIXTURES.tramUmlauftafelXlsx;
 const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 
 let xlsxReady = false;

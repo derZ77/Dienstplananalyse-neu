@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -106,7 +107,7 @@ test('the 3G.1 buildScheduleMatchView export is unchanged and still available', 
 
 // no Scheingrün: real JNV PDF → pipeline → validity → extended view → validation.
 test('real JNV schedule end-to-end (skips only if the external PDF is absent)', async (t) => {
-  const PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+  const PDF = FIXTURES.jnvSchedulePdf;
   try { await access(PDF); } catch { return t.skip('real JNV PDF not available'); }
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');

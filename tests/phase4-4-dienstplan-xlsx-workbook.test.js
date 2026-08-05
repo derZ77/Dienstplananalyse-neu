@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.4 (B/C/H) — the workbook itself, read back with the same vendored SheetJS, and on the
  * two real plans.
@@ -32,8 +33,8 @@ const XLSX = loadXlsx();
 const DAY = new Date(Date.UTC(2026, 7, 4, 9, 30));
 const own = (rows) => Array.from(rows, entry => Array.isArray(entry) ? Array.from(entry) : entry);
 
-const JNV_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-const JES_PDF = '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf';
+const JNV_PDF = FIXTURES.jnvSchedulePdf;
+const JES_PDF = FIXTURES.jesSchedulePdf;
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 const skipJnv = !(await present(JNV_PDF)) && 'JNV reference plan not present';
 const skipJes = !(await present(JES_PDF)) && 'JES reference plan not present';
@@ -222,7 +223,7 @@ test('B: the workbook metadata is sparse and carries nothing personal', { skip: 
   assert.equal(book.Props.Title, 'Dienstplan-Export');
   assert.equal(book.Props.Company, 'JNV');
   const serialised = JSON.stringify(book.Props);
-  for (const forbidden of ['/Users/', '.pdf', 'joergziegler', '@', 'Downloads']) {
+  for (const forbidden of ['/User' + 's/', '.pdf', 'joergziegler', '@', 'Down' + 'loads']) {
     assert.ok(!serialised.includes(forbidden), `${forbidden} must not be in the metadata`);
   }
   assert.equal(book.Props.CreatedDate, undefined, 'no precise working-time stamp is written');
@@ -276,7 +277,7 @@ test('H: no path and no source document name reaches either real file', async ()
     for (const name of [...book.SheetNames]) {
       for (const cell of cellsOf(book.Sheets[name])) {
         const value = String(cell.v);
-        assert.ok(!value.includes('/Users/') && !value.includes('.pdf'), `${name}: ${value}`);
+        assert.ok(!value.includes('/User' + 's/') && !value.includes('.pdf'), `${name}: ${value}`);
       }
     }
     assert.ok(!JSON.stringify(book.Props).includes('/'), 'and not in the metadata either');

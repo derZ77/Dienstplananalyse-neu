@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
@@ -10,8 +11,8 @@ const controllerSource = await readFile(new URL('../js/v2/import/pdf-import-cont
 const { handlePdfImport, inspectPdfImport } = await import('../js/v2/import/pdf-import-controller.js');
 const { buildHardenedCanonicalSchedule } = await import('../js/v2/pdf/hardened-schedule.js');
 
-const BEU_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
-const JES_PDF = '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf';
+const BEU_PDF = FIXTURES.jnvSchedulePdf;
+const JES_PDF = FIXTURES.jesSchedulePdf;
 const present = async (p) => { try { await access(p); return true; } catch { return false; } };
 const statusEl = () => ({ hidden: false, textContent: '' });
 

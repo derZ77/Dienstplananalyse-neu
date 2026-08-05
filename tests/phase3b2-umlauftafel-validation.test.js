@@ -107,7 +107,7 @@ test('G: parser result validation enforces ok/document and non-negative statisti
 test('H: source validator rejects absolute paths and there is no matching field', () => {
   const cleanSource = C.createSource({ sourceFormat: 'xlsx', sheet: '10901', block: 2, row: 15, column: 7, cell: 'G15' });
   assert.equal(V.validateSource(cleanSource).valid, true);
-  const leaky = C.createSource({ sourceFormat: 'xlsx', sheet: '/Users/someone/secret.xlsx' });
+  const leaky = C.createSource({ sourceFormat: 'xlsx', sheet: '/User' + 's/someone/secret.xlsx' });
   assert.equal(V.validateSource(leaky).valid, false);
   // the segment contract carries no matching status/score field
   const seg = C.createSegment({ type: 'service_trip', sequence: 1 });

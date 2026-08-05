@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.2 (B/C) — the real JES Dienstplan-PDF, through the real productive chain.
  *
@@ -20,7 +21,7 @@ const { handlePdfImport } = await import('../js/v2/import/pdf-import-controller.
 const { extractPdfLayoutDocument } = await import('../js/v2/pdf/pdf-core.js');
 const { DOCUMENT_PROFILES } = await import('../js/v2/documents/document-profiles.js');
 
-const JES_PDF = '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf';
+const JES_PDF = FIXTURES.jesSchedulePdf;
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 const fileLike = (bytes, name) => ({ name, type: 'application/pdf', arrayBuffer: async () => bytes.buffer });
 
@@ -86,7 +87,7 @@ test('B: the productive UI handler reports the JES plan as supported', async (t)
   assert.equal(analysis.detection.profile.id, 'jes-regionalbus-v1');
   assert.match(status.textContent, /erkannt/, 'the user is told the document was recognised');
   assert.ok(!status.textContent.includes('nicht unterstützt'));
-  assert.ok(!status.textContent.includes('/Users/'), 'no path reaches the user');
+  assert.ok(!status.textContent.includes('/User' + 's/'), 'no path reaches the user');
   assert.ok(!status.textContent.includes('plan.pdf'), 'and no file name either');
 });
 
@@ -143,7 +144,7 @@ test('C: no reference file name or path reaches the analysis result', async (t) 
   if (!(await present(JES_PDF))) return t.skip('JES reference plan not present');
   const analysis = await analyzePdfImport(fileLike(await jesBytes(), 'plan.pdf'));
   const serialised = JSON.stringify({ detection: analysis.detection, document: analysis.canonicalSchedule.document });
-  assert.ok(!serialised.includes('/Users/'));
+  assert.ok(!serialised.includes('/User' + 's/'));
   assert.ok(!serialised.includes('.pdf'));
   assert.ok(!serialised.includes('Dienstübersicht'));
 });

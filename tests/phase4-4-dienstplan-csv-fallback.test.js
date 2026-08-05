@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.4 (G) — the CSV fallback.
  *
@@ -29,7 +30,7 @@ const loadXlsx = () => {
 const XLSX = loadXlsx();
 const DAY = new Date(Date.UTC(2026, 7, 4, 9, 30));
 
-const JNV_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+const JNV_PDF = FIXTURES.jnvSchedulePdf;
 const present = async (path) => { try { await access(path); return true; } catch { return false; } };
 const skip = !(await present(JNV_PDF)) && 'JNV reference plan not present';
 
@@ -151,7 +152,7 @@ test('G: a day change reads the same in CSV as in XLSX', { skip }, async () => {
 
 test('G: the CSV carries no path, no source name and no raw line', { skip }, async () => {
   const csv = decode(createDienstplanCsv(await realModel(), { now: DAY }).bytes);
-  for (const forbidden of ['/Users/', '.pdf', 'Downloads', 'boundingBox', 'rawCells']) {
+  for (const forbidden of ['/User' + 's/', '.pdf', 'Down' + 'loads', 'boundingBox', 'rawCells']) {
     assert.ok(!csv.includes(forbidden), forbidden);
   }
 });

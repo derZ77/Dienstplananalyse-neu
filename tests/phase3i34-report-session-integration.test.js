@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.34 (F/H) — the report view is fed by the EXISTING CheckReport, and nothing regresses.
  *
@@ -175,7 +176,7 @@ test('H: the rule set is still approved and still switched off', () => {
   assert.equal(config.parameters.activation.enabled.value, false);
 });
 
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realImport = async () => {

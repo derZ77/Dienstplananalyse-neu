@@ -1,15 +1,15 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 
 import { adaptExcelRowsToCanonicalSchedule } from '../js/v2/excel/excel-canonical-adapter.js';
 import { createOriginalBlockViewModel } from '../js/v2/blocks/block-orchestrator.js';
 
-const EXCEL = '/Volumes/Philips SSD/docker/openclaw/workspace/20260713_Dienstuebersicht_FDA_v2.xlsx';
-const DOWNLOADS = '/Users/joergziegler/Downloads';
-const PDF = () => `${DOWNLOADS}/${readdirSync(DOWNLOADS).find(name => name.startsWith('20260713_') && name.endsWith('.pdf'))}`;
+const EXCEL = FIXTURES.jesTenColumnScheduleXlsx;
+const PDF = FIXTURES.jesSchedulePdf;
 
 function installXlsx() {
   if (globalThis.XLSX?.read) return;
@@ -22,7 +22,7 @@ function installXlsx() {
 
 test('Phase 5.3: Original-JES-Excel und zugehöriges PDF erzeugen identische Blöcke 1–10', async () => {
   await access(EXCEL);
-  await access(PDF());
+  await access(PDF);
   installXlsx();
   globalThis.DOMMatrix ||= class DOMMatrix {};
 
@@ -32,7 +32,7 @@ test('Phase 5.3: Original-JES-Excel und zugehöriges PDF erzeugen identische Bl�
   const excel = adaptExcelRowsToCanonicalSchedule(workbook.sheets[0].rows, {
     fileName: EXCEL.split('/').at(-1), sheetName: workbook.sheets[0].name
   });
-  const pdfResult = await analyzePdfImport({ name: PDF().split('/').at(-1), arrayBuffer: () => readFile(PDF()) });
+  const pdfResult = await analyzePdfImport({ name: PDF.split('/').at(-1), arrayBuffer: () => readFile(PDF) });
   const pdf = pdfResult.canonicalSchedule;
   const excelBlocks = createOriginalBlockViewModel(excel);
   const pdfBlocks = createOriginalBlockViewModel(pdf);

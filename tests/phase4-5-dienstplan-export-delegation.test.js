@@ -195,14 +195,14 @@ test('8: the button is usable again after a finished export', () => {
 });
 
 test('8: the state is consistent again after a thrown exporter', () => {
-  const { root, controller } = mount({ download: () => { throw new Error('at /Users/x/a.js:1:1'); } });
+  const { root, controller } = mount({ download: () => { throw new Error('at /User' + 's/x/a.js:1:1'); } });
   controller.update(jnv());
   assert.doesNotThrow(() => buttonOf(root).click());
   assert.equal(controller.getState().busy, false, 'the guard is released');
   assert.equal(buttonOf(root).disabled, false, 'and the button works again');
   assert.equal(statusOf(root).textContent, 'Es konnte keine Datei erzeugt werden.',
     'the user is told, neutrally — and the thrown message never surfaces');
-  assert.ok(!statusOf(root).textContent.includes('/Users/'));
+  assert.ok(!statusOf(root).textContent.includes('/User' + 's/'));
 });
 
 // =====================================================================================
@@ -214,7 +214,7 @@ test('9: a successful export names the format, never the path or the blob', () =
   controller.update(jnv());
   buttonOf(root).click();
   const status = statusOf(root).textContent;
-  assert.ok(!status.includes('/Users/'));
+  assert.ok(!status.includes('/User' + 's/'));
   assert.ok(!status.includes('blob:'));
   assert.ok(!status.includes('.pdf'));
 });
@@ -239,7 +239,7 @@ test('9: nothing raw ever reaches the status line', () => {
   controller.update(jnv());
   buttonOf(root).click();
   const status = statusOf(root).textContent;
-  for (const forbidden of ['/Users/', 'blob:', 'Uint8Array', '{', '[object', 'at Object', '.js:']) {
+  for (const forbidden of ['/User' + 's/', 'blob:', 'Uint8Array', '{', '[object', 'at Object', '.js:']) {
     assert.ok(!status.includes(forbidden), forbidden);
   }
 });

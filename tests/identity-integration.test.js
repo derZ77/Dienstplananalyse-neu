@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ const { normalizePdfLayoutDocument } = await import('../js/v2/pdf/document-norma
 const { mapPdfDocumentToSchedule } = await import('../js/v2/pdf/schedule-mapper.js');
 const { buildCanonicalSchedule } = await import('../js/v2/pdf/canonical-schedule-builder.js');
 
-const BEU_PDF = '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf';
+const BEU_PDF = FIXTURES.jnvSchedulePdf;
 
 // 10-Spalten-Dienstübersicht mit Umlaufspalte 12/1, 12100 und JES-Übergang 7511.
 const excelRows = [

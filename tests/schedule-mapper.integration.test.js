@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -9,8 +10,8 @@ const { normalizePdfLayoutDocument } = await import('../js/v2/pdf/document-norma
 const { mapPdfDocumentToSchedule, toScheduleDocumentDebugJson } = await import('../js/v2/pdf/schedule-mapper.js');
 
 const references = [
-  { name: 'JES', path: '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf' },
-  { name: 'BEU', path: '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf' }
+  { name: 'JES', path: FIXTURES.jesSchedulePdf },
+  { name: 'BEU', path: FIXTURES.jnvSchedulePdf }
 ];
 
 for (const reference of references) {

@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 4.1 (E/F) — CONTRACT TEST: the mapping matrix, measured on the real reference plans.
  *
@@ -25,9 +26,9 @@ const { buildHardenedCanonicalSchedule } = await import('../js/v2/pdf/hardened-s
 const { buildDetectionText } = await import('../js/v2/import/pdf-analysis-controller.js');
 
 const REFERENCE = {
-  jnv: '/Users/joergziegler/Downloads/B_20260817_MoFr_Schule_BEU.pdf',
-  jes: '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf',
-  excel: '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx'
+  jnv: FIXTURES.jnvSchedulePdf,
+  jes: FIXTURES.jesSchedulePdf,
+  excel: FIXTURES.legacyScheduleXlsx
 };
 const readable = (path) => { try { readFileSync(path); return true; } catch { return false; } };
 

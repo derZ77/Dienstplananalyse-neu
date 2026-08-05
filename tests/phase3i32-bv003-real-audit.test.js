@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 /**
  * Phase 3I.32 (E/F) — BV003 as it stands today, classified against the handover chain.
  *
@@ -162,7 +163,7 @@ test('F: matcher, joint timeline and driving projection carry no change', () => 
 // =====================================================================================
 // E (real) — the same audit over the productive import of the real plan
 // =====================================================================================
-const REAL_PLAN = '/Users/joergziegler/Downloads/Test/B_20260727_MoFrFerien.xlsx';
+const REAL_PLAN = FIXTURES.legacyScheduleXlsx;
 const available = (() => { try { readFileSync(REAL_PLAN); return true; } catch { return false; } })();
 
 const realImport = async () => {

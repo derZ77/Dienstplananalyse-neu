@@ -1,3 +1,4 @@
+import { FIXTURES } from './fixtures/paths.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -30,7 +31,7 @@ test('der JES-Referenzdienst erzeugt aus echtem Excel und PDF dieselben Original
     ['', '7511', 'Dienst', '07:33', 'Busbahnhof', '12:13', 'Betriebshof Jena-Burgau', '', '', ''],
     ['', '', 'Nachbereitungszeit JES', '12:13', 'Betriebshof Jena-Burgau', '12:28', 'Betriebshof Jena-Burgau', '', '', '']
   ], { sheetName: 'Dienstübersicht' });
-  const path = '/Users/joergziegler/Downloads/20260713_Dienstübersicht_FDA.pdf';
+  const path = FIXTURES.jesSchedulePdf;
   const result = await analyzePdfImport({ name: 'Dienstplan.pdf', arrayBuffer: () => readFile(path) });
   const service = result.canonicalSchedule.services.find(entry => entry.serviceNumber === '751');
   const pdf = { ...result.canonicalSchedule, services: [service], activities: service.activities };
