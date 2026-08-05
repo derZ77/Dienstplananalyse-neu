@@ -51,14 +51,13 @@ eigenständig verarbeitet.
 npm test
 ```
 
-Ein Teil der fachlichen Akzeptanztests verwendet echte, bewusst nicht
-versionierte Referenzdokumente. Diese Dateien sind durch `.gitignore`
-ausgeschlossen und gehören nicht zum Repository. Die Anwendung selbst lässt
-sich aus einem sauberen Checkout starten; für die vollständige lokale
-Akzeptanztestsuite werden die entsprechenden Referenzdaten benötigt.
+Die fachlichen Akzeptanz-Fixtures liegen versioniert und zentral unter
+`tests/fixtures/`. Dadurch ist die vollständige Testsuite aus einem sauberen
+Checkout ohne lokale Referenzdateien ausführbar.
 
 ## Datenschutz und lokale Verarbeitung
 
 Die Anwendung wird lokal über den Entwicklungsserver ausgeliefert. Importierte
-Dienstpläne werden nicht an einen externen Dienst übertragen. Persönliche
-Dokumente sowie Excel- und PDF-Testdaten sind vom Repository ausgeschlossen.
+Dienstpläne werden nicht an einen externen Dienst übertragen. Versionierte
+Test-Fixtures sind für die Tests freigegebene, auf personenbezogene Kennungen
+geprüfte Referenzartefakte.
