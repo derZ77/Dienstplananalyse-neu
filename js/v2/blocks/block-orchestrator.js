@@ -39,7 +39,7 @@ export function createOriginalBlockViewModel(canonicalSchedule) {
     segmentText: renderSegments(legacy.longServiceParts),
     realDrivingTimeText: UNAVAILABLE_DRIVING_TIME,
     shiftText: renderShifts(legacy.shifts),
-    shiftHtml: '',
+    shiftHtml: renderShiftHtml(legacy.shifts),
     routeText: renderRoutes(legacy.routes),
     pauseHtml: renderInterruptions(pauses, canonicalSchedule, new Set(legacy.sharedServices.map(service => service.serviceNumber))),
     planHinweis
@@ -118,13 +118,106 @@ function courseLabel(value) {
 }
 
 function renderShifts(shifts) {
-  const counts = Object.entries(shifts.counts)
-    .sort(([left], [right]) => left.localeCompare(right, 'de', { numeric: true }))
-    .map(([name, count]) => `${name}: ${count}`);
-  const assignments = [...shifts.assignments]
-    .sort((left, right) => number(left.serviceNumber) - number(right.serviceNumber))
-    .map(entry => `ID ${entry.serviceNumber}: ${entry.shift}${entry.isShared ? ' (geteilt)' : ''}`);
-  return ['Schichtzuweisung anhand des Dienstbeginns:', ...counts, '', 'Zuteilung je Dienst-ID:', ...assignments].join('\n');
+  const assignments = uniqueShiftAssignments(shifts)
+    .sort((left, right) => number(left.serviceNumber) - number(right.serviceNumber));
+  const regularCounts = countShifts(assignments.filter(entry => !entry.isShared));
+  const sharedCounts = countShifts(assignments.filter(entry => entry.isShared && entry.shift !== 'Unbekannte'));
+  const regularTitle = shifts.weekend
+    ? 'Schichtzählung (nicht geteilte Dienste nach WE-F1, WE-F2, S1, S2, N):'
+    : 'Schichtzählung (nicht geteilte Dienste nach F1, F2, F3, S1, S2, N):';
+  const sharedTitle = 'Geteilte Dienste mit separater Schichtlage (GF1, GF2, ... bzw. GWE-F1, ...):';
+  return [
+    regularTitle,
+    ...renderShiftCounts(regularCounts),
+    '',
+    sharedTitle,
+    ...(Object.keys(sharedCounts).length ? renderShiftCounts(sharedCounts) : ['Keine geteilten Dienste mit zugewiesener Schichtlage gefunden.']),
+    '',
+    'Zuteilung je Dienst-ID:',
+    ...assignments
+      .map(entry => `ID ${entry.serviceNumber}: ${entry.shift}${entry.isShared ? ' (geteilt)' : ''}`)
+  ].join('\n');
+}
+
+function renderShiftHtml(shifts) {
+  const assignments = uniqueShiftAssignments(shifts)
+    .sort((left, right) => number(left.serviceNumber) - number(right.serviceNumber));
+  const title = shifts.weekend
+    ? 'Schichtzuweisung nach WE-F1, WE-F2, S1, S2, N'
+    : 'Schichtzuweisung nach F1, F2, F3, GF1, GF2, GF3, S1, S2, N';
+  const grouped = assignments.reduce((groups, assignment) => {
+    const key = assignment.shift || 'Unbekannte';
+    const entries = groups.get(key) || [];
+    entries.push(assignment);
+    groups.set(key, entries);
+    return groups;
+  }, new Map());
+  let html = `<div>${escapeHtml(title)}</div><br>`;
+  sortShiftNames([...grouped.keys()]).forEach(name => {
+    const entries = grouped.get(name).slice().sort((left, right) => number(left.serviceNumber) - number(right.serviceNumber));
+    const cssClass = shiftCssClass(name);
+    html += '<div class="shift-group">';
+    html += `<div class="shift-group-title${cssClass ? ` ${cssClass}` : ''}">${escapeHtml(name)} (${entries.length})</div>`;
+    html += '<div class="shift-group-lines">';
+    entries.forEach(entry => { html += `<div>${escapeHtml(`ID ${entry.serviceNumber}: ${entry.shift}${entry.isShared ? ' (geteilt)' : ''}`)}</div>`; });
+    html += '</div></div>';
+  });
+  return html.trim();
+}
+
+function uniqueShiftAssignments(shifts) {
+  const seen = new Set();
+  return (shifts?.assignments || []).filter(assignment => {
+    const key = text(assignment.serviceNumber);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function countShifts(assignments) {
+  return assignments.reduce((counts, assignment) => {
+    counts[assignment.shift] = (counts[assignment.shift] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function renderShiftCounts(counts) {
+  return sortShiftNames(Object.keys(counts)).map(name => `${name}: ${counts[name]}`);
+}
+
+function sortShiftNames(names) {
+  const order = ['F1', 'F2', 'F3', 'GF1', 'GF2', 'GF3', 'S1', 'S2', 'N'];
+  return [...names].sort((left, right) => {
+    const leftIndex = order.indexOf(left);
+    const rightIndex = order.indexOf(right);
+    if (leftIndex !== rightIndex && leftIndex !== -1 && rightIndex !== -1) return leftIndex - rightIndex;
+    if (leftIndex !== -1) return -1;
+    if (rightIndex !== -1) return 1;
+    return left.localeCompare(right, 'de');
+  });
+}
+
+function shiftCssClass(name) {
+  if (/^GF1$|^GWE-F1$/i.test(name)) return 'shift-gf1';
+  if (/^GF2$|^GWE-F2$/i.test(name)) return 'shift-gf2';
+  if (/^GF3$/i.test(name)) return 'shift-gf3';
+  if (/^F1$|^WE-F1$/i.test(name)) return 'shift-f1';
+  if (/^F2$|^WE-F2$/i.test(name)) return 'shift-f2';
+  if (/^F3$/i.test(name)) return 'shift-f3';
+  if (/^S1$/i.test(name)) return 'shift-s1';
+  if (/^S2$/i.test(name)) return 'shift-s2';
+  if (/^N$/i.test(name)) return 'shift-n';
+  return '';
+}
+
+function escapeHtml(value) {
+  return text(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function renderRoutes(routes) {

@@ -13,12 +13,18 @@ const TEXT_TARGETS = Object.freeze({
   'route-result': 'routeText',
   'pause-result': 'pauseHtml'
 });
+const HTML_TARGETS = Object.freeze({
+  'shift-result': 'shiftHtml'
+});
 
 export function renderOriginalBlocks(blocks, { document = globalThis.document } = {}) {
   if (!blocks || !document?.getElementById) return;
   for (const [id, field] of Object.entries(TEXT_TARGETS)) {
     const target = document.getElementById(id);
-    if (target) target.textContent = String(blocks[field] ?? '');
+    if (!target) continue;
+    const htmlField = HTML_TARGETS[id];
+    if (htmlField && blocks[htmlField]) target.innerHTML = String(blocks[htmlField]);
+    else target.textContent = String(blocks[field] ?? '');
   }
   const plan = document.getElementById('current-plan-display');
   if (plan) plan.textContent = `Aktueller Plan: ${blocks.planHinweis || ''}`;
