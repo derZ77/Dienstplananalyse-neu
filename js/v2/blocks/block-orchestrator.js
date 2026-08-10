@@ -35,7 +35,7 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
     countText: `Anzahl eindeutiger Dienst-IDs: ${legacy.serviceCount}`,
     sharedText: renderShared(legacy.sharedServices),
     reserveText: `Anzahl Reserve-Dienste: ${legacy.reserveServices.length}\nIDs: ${ordered(legacy.reserveServices).join(', ')}`,
-    longText: `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ') || 'keine'}`,
+    longText: `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ')}`,
     locText: renderLocations(legacy.differentLocationServices),
     segmentText: renderSegments(legacy.longServiceParts, segmentAssessments),
     realDrivingTimeText: UNAVAILABLE_DRIVING_TIME,
