@@ -21,6 +21,7 @@ import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js';
 import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js';
 import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js';
 import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js';
+import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
 
 const DETECTION_PAGES = 2;
 
@@ -65,6 +66,44 @@ export async function analyzePdfImport(file) {
   }
 
   const scheduleDocument = mapPdfDocumentToSchedule(normalizePdfLayoutDocument(layout));
-  const canonicalSchedule = buildHardenedCanonicalSchedule(scheduleDocument, { profileId: detection.profile.id });
+  const hardenedSchedule = buildHardenedCanonicalSchedule(scheduleDocument, { profileId: detection.profile.id });
+  const canonicalSchedule = attachRecognizedInterruptions(hardenedSchedule);
   return { detection, canonicalSchedule };
+}
+
+/**
+ * Promotes already-recognised PDF interruptions into the source-neutral
+ * CanonicalSchedule contract. The JNV hardening remains the recogniser; this
+ * seam only makes its established data available to shared consumers.
+ */
+function attachRecognizedInterruptions(schedule) {
+  const recognized = schedule?.hardened?.applied ? schedule.hardened.interruptions : [];
+  if (!Array.isArray(recognized) || !recognized.length) return schedule;
+  return attachCanonicalInterruptions(schedule, recognized
+    .filter(interruption => interruption.valid)
+    .map((interruption, index) => createCanonicalInterruption({
+      ...interruption,
+      id: `pdf-interruption:${interruption.serviceId}:${index + 1}`,
+      type: 'serviceInterruption',
+      kind: CANONICAL_INTERRUPTION_KINDS.INTERRUPTION,
+      start: clock(interruption.startTime, interruption.startMinutes),
+      end: clock(interruption.endTime, interruption.endMinutes),
+      durationMinutes: interruptionDuration(interruption),
+      source: interruption.source ?? null,
+      serviceId: interruption.serviceId,
+      serviceNumber: interruption.serviceNumber
+    })));
+}
+
+function clock(value, minutes) {
+  return {
+    raw: value || '',
+    value: value || null,
+    minutesSinceStartOfDay: Number.isInteger(minutes) ? minutes : null
+  };
+}
+
+function interruptionDuration(interruption) {
+  if (!Number.isInteger(interruption.startMinutes) || !Number.isInteger(interruption.endMinutes)) return null;
+  return interruption.endMinutes - interruption.startMinutes + ((interruption.dayOffsetEnd || 0) * 1440);
 }

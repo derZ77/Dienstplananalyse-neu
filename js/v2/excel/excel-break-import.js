@@ -97,6 +97,8 @@ export function buildDeclaredBreakIndex(rows) {
   return index;
 }
 
+import { CANONICAL_INTERRUPTION_KINDS, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
+
 const minutesOf = (time) => Number.isInteger(time?.minutesSinceStartOfDay) ? time.minutesSinceStartOfDay : null;
 
 /** Builds the same clock shape the Excel adapter produces, so consumers see one model. */
@@ -130,8 +132,10 @@ export function deriveServiceInterruptions(service) {
     if (duration < -720) duration += 1440;
     if (duration <= 0) continue;
 
-    interruptions.push({
+    interruptions.push(createCanonicalInterruption({
       id: `excel-interruption:${service.id}:${interruptions.length + 1}`,
+      type: 'serviceInterruption',
+      kind: CANONICAL_INTERRUPTION_KINDS.INTERRUPTION,
       serviceId: service.id,
       serviceNumber: service.serviceNumber,
       start: clock(from),
@@ -142,7 +146,7 @@ export function deriveServiceInterruptions(service) {
       precedingActivityId: previous.id,
       followingActivityId: next.id,
       source: previous.source || null
-    });
+    }));
   }
   return interruptions;
 }
