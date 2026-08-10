@@ -12,6 +12,7 @@ const MIN_NORMAL_PAUSE_MINUTES = 30;
 const MAX_NORMAL_PAUSE_MINUTES = 120;
 const MIN_WORK_BEFORE_PAUSE_MINUTES = 210;
 const MAX_WORK_BEFORE_PAUSE_MINUTES = 270;
+const WEEKDAY_TIMEFRAMES = new Set(['Mo–Fr Schule', 'Mo–Fr Ferien']);
 const text = value => String(value ?? '').trim();
 const number = value => Number.parseInt(value, 10);
 const ordered = values => [...values].sort((left, right) => number(left) - number(right));
@@ -29,13 +30,14 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
   const planHinweis = legacy.plan.label;
   const pauses = collectInterruptions(canonicalSchedule);
   const segmentAssessments = collectSegmentAssessments(legacy.sharedServices, checkReport);
+  const legacyLongText = `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ')}`;
 
   return {
     planTypeText: `Erkannter Dienstplan: ${planHinweis}`,
     countText: `Anzahl eindeutiger Dienst-IDs: ${legacy.serviceCount}`,
     sharedText: renderShared(legacy.sharedServices),
     reserveText: `Anzahl Reserve-Dienste: ${legacy.reserveServices.length}\nIDs: ${ordered(legacy.reserveServices).join(', ')}`,
-    longText: `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ')}`,
+    longText: `${legacyLongText}\n\n${renderPaidTimeBvAssessment(canonicalSchedule, legacy)}`,
     locText: renderLocations(legacy.differentLocationServices),
     segmentText: renderSegments(legacy.longServiceParts, segmentAssessments),
     realDrivingTimeText: UNAVAILABLE_DRIVING_TIME,
@@ -45,6 +47,39 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
     pauseHtml: renderInterruptions(pauses, canonicalSchedule, new Set(legacy.sharedServices.map(service => service.serviceNumber))),
     planHinweis
   };
+}
+
+function renderPaidTimeBvAssessment(canonicalSchedule, legacy) {
+  if (!WEEKDAY_TIMEFRAMES.has(legacy.plan.timeframe)) {
+    return [
+      'BV-Bewertung:',
+      'Nicht anwendbar: Der vorhandene Planzeitraum ist nicht eindeutig als Montag bis Freitag erkannt.'
+    ].join('\n');
+  }
+
+  const reserveServiceNumbers = new Set(legacy.reserveServices.map(text));
+  const longServiceNumbers = ordered(legacy.longPaidServices);
+  const servicesByNumber = new Map(canonicalSchedule.services.map(service => [text(service.serviceNumber), service]));
+  const details = longServiceNumbers.map(serviceNumber => {
+    const service = servicesByNumber.get(text(serviceNumber));
+    const type = reserveServiceNumbers.has(text(serviceNumber)) ? 'Reserve' : 'normal';
+    return `${serviceNumber} | ${duration(service?.paidTime)} h | ${type}`;
+  });
+  const reserveCount = longServiceNumbers.filter(serviceNumber => reserveServiceNumbers.has(text(serviceNumber))).length;
+  const relevantCount = longServiceNumbers.length - reserveCount;
+  const result = relevantCount <= 1 ? 'BV eingehalten.' : 'BV-Verstoß / Prüfung erforderlich.';
+
+  return [
+    'BV-Bewertung (Mo–Fr):',
+    `Gefunden: ${longServiceNumbers.length} Dienste über 08:30h`,
+    `davon Reserve: ${reserveCount}`,
+    `für BV relevant: ${relevantCount}`,
+    'Begründung: Reserve-Dienste zählen nicht gegen die Begrenzung.',
+    'Dienstdetails:',
+    'Dienst | Bezahlte Zeit | Typ',
+    ...details,
+    `Ergebnis: ${result}`
+  ].join('\n');
 }
 
 function renderShared(services) {

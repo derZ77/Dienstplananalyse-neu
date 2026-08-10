@@ -38,10 +38,10 @@ test('Phase 6.10: Block 4 bewahrt Legacy-Grenze, numerische Sortierung und den l
   const schedule = adaptExcelRowsToCanonicalSchedule(rows, { layout: 'legacy-tabular-17-column' });
   const blocks = createOriginalBlockViewModel(schedule);
 
-  assert.equal(blocks.longText, 'Dienste >08:30h: 1102, 1204');
+  assert.equal(blocks.longText.split('\n\n')[0], 'Dienste >08:30h: 1102, 1204');
 
   const emptySchedule = adaptExcelRowsToCanonicalSchedule([rows[0], rows[2]], { layout: 'legacy-tabular-17-column' });
-  assert.equal(createOriginalBlockViewModel(emptySchedule).longText, 'Dienste >08:30h: ');
+  assert.equal(createOriginalBlockViewModel(emptySchedule).longText.split('\n\n')[0], 'Dienste >08:30h: ');
 });
 
 test('Phase 6.10: JES-Excel und JES-PDF verwenden dieselbe Block-4-Feststellung', async () => {
@@ -56,12 +56,13 @@ test('Phase 6.10: JES-Excel und JES-PDF verwenden dieselbe Block-4-Feststellung'
   assert.equal(createOriginalBlockViewModel(pdf).longText, createOriginalBlockViewModel(excel).longText);
 });
 
-test('Phase 6.10: JNV-PDF liefert nur die Legacy-Feststellung ohne Zusatzbewertung', async () => {
+test('Phase 6.10: JNV-PDF bewahrt seine Legacy-Feststellung vor der zusätzlichen Bewertung', async () => {
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');
   const schedule = (await analyzePdfImport(fileLike(FIXTURES.jnvSchedulePdf))).canonicalSchedule;
   const output = createOriginalBlockViewModel(schedule).longText;
 
   assert.match(output, /^Dienste >08:30h:/);
-  assert.doesNotMatch(output, /Bewertung:|Ausnahmegrund:|Ergebnis:/);
+  assert.match(output, /BV-Bewertung \(Mo–Fr\):/);
+  assert.doesNotMatch(output, /Ausnahmegrund:/);
 });
