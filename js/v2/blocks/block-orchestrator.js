@@ -77,14 +77,44 @@ function renderLocations(locations) {
 }
 
 function renderSegments(services) {
-  if (!services.length) return 'Keine Dienstteilstücke >04:30h gefunden.';
-  return services.map(service => {
-    const findings = service.findings.map(finding => {
-      if (finding.type === 'single') return `${finding.circuitNumber || '-'} ${clock(finding.start)}–${clock(finding.end)} (${duration(finding.duration)})`;
-      return `${finding.first.circuitNumber || '-'} / ${finding.second.circuitNumber || '-'} ${clock(finding.first.start)}–${clock(finding.second.end)} (${duration(finding.duration)})`;
-    });
-    return `ID ${service.serviceNumber}: ${findings.join('; ')}`;
-  }).join('\n');
+  const grouped = new Map();
+  for (const service of services) {
+    const group = grouped.get(service.serviceNumber) || [];
+    group.push(...service.findings);
+    grouped.set(service.serviceNumber, group);
+  }
+  const entries = [...grouped.entries()].sort(([left], [right]) => number(left) - number(right));
+  let output = 'Dienstteilstücke >04:30h (ohne Reserve-Dienste, inkl. kombinierter Teile mit Pause <30 Min): ' + entries.length;
+
+  if (!entries.length) return `${output}\n\nKeine relevanten Dienstteilstücke gefunden.`;
+
+  output += '\n\n';
+  entries.forEach(([serviceNumber, findings]) => {
+    output += `ID ${serviceNumber}:\n`;
+    findings.forEach(finding => { output += `${renderSegmentFinding(finding)}\n`; });
+    if (findings.some(finding => finding.exceedsSixHours)) {
+      output += '  Hinweis: Bitte Fahrtafel prüfen ob 1/6 Dienst und Standzeiten ausreichen.\n';
+    }
+    output += '\n';
+  });
+  return output.trim();
+}
+
+function renderSegmentFinding(finding) {
+  if (finding.type === 'single') {
+    return `  Einzelsegment ${clock(finding.start)}–${clock(finding.end)}${courseLabel(finding.circuitNumber)} | Dauer ${duration(finding.duration)}`;
+  }
+  const courses = [finding.first?.circuitNumber, finding.second?.circuitNumber]
+    .map(text)
+    .filter(Boolean);
+  const courseInfo = courses.length ? ` (${courses.join(' / ')})` : '';
+  return `  Kombiniert: ${clock(finding.first?.start)}–${clock(finding.first?.end)} und ${clock(finding.second?.start)}–${clock(finding.second?.end)}${courseInfo}` +
+    ` | Pause ${finding.gap?.minutes ?? '-'} Min, Gesamtdauer ${duration(finding.duration)}`;
+}
+
+function courseLabel(value) {
+  const course = text(value);
+  return course ? ` (${course})` : '';
 }
 
 function renderShifts(shifts) {
