@@ -20,11 +20,16 @@ export function analyzeMigratedLegacyChecks(canonicalSchedule) {
   const plan = detectLegacyPlan(services);
   const sharedServices = findSharedServices(services);
   const reserveServices = services.filter(service => RESERVE_SERVICE_NUMBERS.has(toNumber(service.serviceNumber)));
+  const uniqueServiceNumbers = new Set(
+    services
+      .map(service => toNumber(service.serviceNumber))
+      .filter(serviceNumber => Number.isInteger(serviceNumber) && serviceNumber >= 1)
+  );
 
   return {
     type: 'MigratedLegacyAnalysisResult',
     plan,
-    serviceCount: services.length,
+    serviceCount: uniqueServiceNumbers.size,
     sharedServices,
     reserveServices: reserveServices.map(service => service.serviceNumber),
     longPaidServices: services
