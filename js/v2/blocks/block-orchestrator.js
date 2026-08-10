@@ -362,10 +362,49 @@ function renderInterruptions(interruptions, schedule, sharedServiceNumbers) {
   sections.push(legacyPauses.length
     ? renderLegacyPauseEntries(legacyPauses, schedule)
     : 'Keine Pausen im Bereich 30–120 Minuten gefunden.');
+  if (legacyPauses.length) sections.push('', renderPauseTimingAssessment(legacyPauses, schedule));
   if (additional.length) {
     sections.push('', 'Zusätzliche Canonical-Unterbrechungen:', '', renderCanonicalInterruptionEntries(additional));
   }
   return sections.join('\n').trim();
+}
+
+function renderPauseTimingAssessment(interruptions, schedule) {
+  const services = new Map((schedule?.services || []).map(service => [service.id, service]));
+  return [
+    'BV-Pausenlagenprüfung:',
+    ...interruptions.map(interruption => {
+      const service = services.get(interruption.serviceId);
+      const structuredMinutes = structuredWorkMinutesBeforePause(service, interruption);
+      const fallbackMinutes = durationMinutes(service?.begin, interruption.start);
+      const minutes = structuredMinutes ?? fallbackMinutes;
+      const basis = structuredMinutes === null ? 'Fallback Dienstbeginn/Pausenbeginn' : 'Arbeitszeitdaten';
+      const result = Number.isInteger(minutes) && minutes >= MIN_WORK_BEFORE_PAUSE_MINUTES && minutes <= MAX_WORK_BEFORE_PAUSE_MINUTES
+        ? 'BV eingehalten'
+        : 'BV-Verstoß';
+      return [
+        `Dienst ${text(interruption.serviceNumber) || '-'}:`,
+        `Pause: ${clock(interruption.start)} - ${clock(interruption.end)}`,
+        `Dauer: ${interruption.durationMinutes} min`,
+        `Zeit vor Pause: ${formatMinutes(minutes)} h`,
+        `Grundlage: ${basis}`,
+        `Bewertung: ${result}`,
+        structuredMinutes === null ? 'Hinweis: Bewertung basiert auf Zeitdifferenz Dienstbeginn bis Pausenbeginn, da keine vollständigen Arbeitszeitdaten vorliegen.' : ''
+      ].filter(Boolean).join('\n');
+    })
+  ].join('\n\n');
+}
+
+function structuredWorkMinutesBeforePause(service, interruption) {
+  const pauseStart = interruption.start?.minutesSinceStartOfDay;
+  if (!Number.isInteger(pauseStart)) return null;
+  const activities = (service?.activities || []).filter(activity =>
+    Number.isInteger(activity.departureTime?.minutesSinceStartOfDay) &&
+    Number.isInteger(activity.arrivalTime?.minutesSinceStartOfDay) &&
+    activity.arrivalTime.minutesSinceStartOfDay <= pauseStart);
+  if (!activities.length) return null;
+  const durations = activities.map(activity => durationMinutes(activity.departureTime, activity.arrivalTime));
+  return durations.every(Number.isInteger) ? durations.reduce((sum, value) => sum + value, 0) : null;
 }
 
 function renderLegacyPauseEntries(interruptions, schedule) {
