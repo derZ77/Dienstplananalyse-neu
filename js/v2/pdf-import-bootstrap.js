@@ -56,7 +56,7 @@ function render(state) {
   setStatus(ruleAnalysisStatusEl, state.ruleAnalysisStatus);
   const canonicalSchedule = state?.primaryImport?.canonicalSchedule;
   if (canonicalSchedule?.type === 'CanonicalSchedule') {
-    renderOriginalBlocks(createOriginalBlockViewModel(canonicalSchedule));
+    renderOriginalBlocks(createOriginalBlockViewModel(canonicalSchedule, { checkReport: state.checkReport }));
   } else if (!state?.primaryImport) {
     clearOriginalBlocks();
   }

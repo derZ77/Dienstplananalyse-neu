@@ -23,11 +23,12 @@ const duration = value => text(value?.value) || '-';
  * Returns the historic `parseTabular` result shape so the page's original block
  * renderer needs no new block IDs or PDF-only view model.
  */
-export function createOriginalBlockViewModel(canonicalSchedule) {
+export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = null } = {}) {
   const analysis = analyzeCanonicalScheduleWithMigratedLegacyChecks(canonicalSchedule);
   const legacy = analysis.legacyAnalyses;
   const planHinweis = legacy.plan.label;
   const pauses = collectInterruptions(canonicalSchedule);
+  const segmentAssessments = collectSegmentAssessments(legacy.sharedServices, checkReport);
 
   return {
     planTypeText: `Erkannter Dienstplan: ${planHinweis}`,
@@ -36,7 +37,7 @@ export function createOriginalBlockViewModel(canonicalSchedule) {
     reserveText: `Anzahl Reserve-Dienste: ${legacy.reserveServices.length}\nIDs: ${ordered(legacy.reserveServices).join(', ')}`,
     longText: `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ') || 'keine'}`,
     locText: renderLocations(legacy.differentLocationServices),
-    segmentText: renderSegments(legacy.longServiceParts),
+    segmentText: renderSegments(legacy.longServiceParts, segmentAssessments),
     realDrivingTimeText: UNAVAILABLE_DRIVING_TIME,
     shiftText: renderShifts(legacy.shifts),
     shiftHtml: renderShiftHtml(legacy.shifts),
@@ -76,7 +77,7 @@ function renderLocations(locations) {
     locations.map(location => `ID ${location.serviceNumber}: ${location.startLocation} → ${location.endLocation}`).join('\n');
 }
 
-function renderSegments(services) {
+function renderSegments(services, assessments) {
   const grouped = new Map();
   for (const service of services) {
     const group = grouped.get(service.serviceNumber) || [];
@@ -95,9 +96,63 @@ function renderSegments(services) {
     if (findings.some(finding => finding.exceedsSixHours)) {
       output += '  Hinweis: Bitte Fahrtafel prüfen ob 1/6 Dienst und Standzeiten ausreichen.\n';
     }
+    const assessmentLines = renderSegmentAssessment(serviceNumber, assessments);
+    if (assessmentLines.length) output += `${assessmentLines.join('\n')}\n`;
     output += '\n';
   });
   return output.trim();
+}
+
+function collectSegmentAssessments(sharedServices, checkReport) {
+  const sharedServiceNumbers = new Set(sharedServices.map(service => text(service.serviceNumber)).filter(Boolean));
+  const oneSixthStatusByService = new Map();
+
+  for (const result of checkReport?.results || []) {
+    if (result?.id !== 'BV015_BV018') continue;
+    for (const service of result?.details?.services || []) {
+      const serviceNumber = text(service.serviceNumber);
+      const status = text(service.status);
+      if (serviceNumber && status) oneSixthStatusByService.set(serviceNumber, status);
+    }
+  }
+
+  return { sharedServiceNumbers, oneSixthStatusByService };
+}
+
+function renderSegmentAssessment(serviceNumber, assessments) {
+  const normalizedServiceNumber = text(serviceNumber);
+  const isShared = assessments.sharedServiceNumbers.has(normalizedServiceNumber);
+  const oneSixthStatus = assessments.oneSixthStatusByService.get(normalizedServiceNumber);
+  if (!isShared && !oneSixthStatus) return [];
+
+  const lines = ['  Bewertung:'];
+  lines.push(isShared
+    ? '  Ausnahmegrund: Geteilter Dienst erkannt (zusätzliche Ausnahmeinformation für Dienstteil >04:30h; keine 1/6-Ausnahme).'
+    : '  Ausnahmegrund: Keine vorhandene Ausnahmeinformation.');
+
+  if (!oneSixthStatus) {
+    lines.push('  Ergebnis: geteilter Dienst erkannt; keine 1/6-Bewertung vorhanden.');
+    return lines;
+  }
+
+  lines.push(`  1/6-Prüfung: ${oneSixthStatus}.`);
+  lines.push(`  Ergebnis: ${oneSixthAssessmentText(oneSixthStatus)}`);
+  return lines;
+}
+
+function oneSixthAssessmentText(status) {
+  switch (status) {
+    case 'PASS':
+      return 'zulässiger 1/6-Dienst (bestehendes BV015_BV018-Ergebnis).';
+    case 'FAIL':
+      return '1/6-Dienst nicht zulässig (bestehendes BV015_BV018-Ergebnis).';
+    case 'NOT_APPLICABLE':
+      return 'keine 1/6-Ausnahme (bestehendes BV015_BV018-Ergebnis).';
+    case 'INCONCLUSIVE':
+      return '1/6-Bewertung nicht abschließend (bestehendes BV015_BV018-Ergebnis).';
+    default:
+      return `1/6-Ergebnis ${status} (bestehendes BV015_BV018-Ergebnis).`;
+  }
 }
 
 function renderSegmentFinding(finding) {
