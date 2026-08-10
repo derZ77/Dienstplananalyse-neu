@@ -3,6 +3,7 @@ import { createMultiDocumentSession } from './import/multi-document-import-contr
 import { createCheckExplorerSessionBridge } from './explorer/check-explorer-session-bridge.js';
 import { deriveReportContext } from './report/check-report-view-model.js';
 import { createDienstplanExportController } from './export/dienstplan-export-ui.js';
+import { createDienstuebersichtExportController } from './export/dienstuebersicht-export-ui.js';
 import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
 import { clearOriginalBlocks, renderOriginalBlocks } from './blocks/block-renderer.js';
 
@@ -23,6 +24,9 @@ const explorerBridge = createCheckExplorerSessionBridge({
 const dienstplanExportRoot = document.getElementById('dienstplan-export');
 const dienstplanExport = dienstplanExportRoot
   ? createDienstplanExportController(dienstplanExportRoot)
+  : null;
+const dienstuebersichtExport = dienstplanExportRoot
+  ? createDienstuebersichtExportController(dienstplanExportRoot)
   : null;
 
 const companionStatusEl = document.getElementById('companion-import-result');
@@ -69,6 +73,7 @@ function render(state) {
   // Phase 4.5: the export action follows the SAME session state. A new import replaces the
   // decision — and with it any earlier projection model — so nothing stale can be exported.
   dienstplanExport?.update(state);
+  dienstuebersichtExport?.update(state);
   return state;
 }
 
