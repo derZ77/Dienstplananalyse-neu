@@ -48,10 +48,26 @@ export function createOriginalBlockViewModel(canonicalSchedule) {
 
 function renderShared(services) {
   const sorted = [...services].sort((left, right) => number(left.serviceNumber) - number(right.serviceNumber));
-  const lines = sorted.map(service =>
-    `ID ${service.serviceNumber}: Schichtdauer ${duration(service.shiftDuration)}${service.exceedsTwelveHours ? ' (über 12:00h)' : ''}`);
-  return [`Anzahl geteilte Dienste: ${sorted.length}`, `IDs: ${sorted.map(service => service.serviceNumber).join(', ') || 'keine'}`,
-    lines.length ? '' : 'Keine geteilten Dienste gefunden.', ...lines].join('\n');
+  let output = `Anzahl geteilte Dienste: ${sorted.length}\nIDs: ${sorted.map(service => service.serviceNumber).join(', ')}`;
+
+  if (!sorted.length) return `${output}\n\nKeine geteilten Dienste gefunden.`;
+
+  const lines = sorted.map(service => {
+    if (service.shiftDuration?.minutes === null) {
+      return `ID ${service.serviceNumber}: keine gültigen Zeiten in Spalte O/P gefunden`;
+    }
+    return `ID ${service.serviceNumber}: Schichtdauer ${duration(service.shiftDuration)} (Spalte O → P)`;
+  });
+  const overTwelve = sorted
+    .filter(service => service.exceedsTwelveHours)
+    .map(service => `ID ${service.serviceNumber} (${duration(service.shiftDuration)})`);
+
+  output += '\n\nSchichtdauer je geteilter Dienst (erste Zeit in Spalte O bis letzte Zeit in Spalte P):\n';
+  output += lines.join('\n');
+  output += overTwelve.length
+    ? `\n\nAchtung: folgende geteilte Dienste überschreiten 12:00h Schichtdauer:\n${overTwelve.join(', ')}`
+    : '\n\nAlle geteilten Dienste liegen bei maximal 12:00h Schichtdauer.';
+  return output;
 }
 
 function renderLocations(locations) {
