@@ -313,8 +313,27 @@ function escapeHtml(value) {
 
 function renderRoutes(routes) {
   const entries = Object.entries(routes);
-  if (!entries.length) return 'Keine Dienste nach Linie/Kurs gefunden.';
-  return entries.map(([route, services]) => `${route}: ${ordered(services.map(service => service.serviceNumber)).join(', ')}`).join('\n');
+  if (!entries.length) return 'Dienste nach Linie/Kurs:';
+
+  let output = 'Dienste nach Linie/Kurs:\n';
+  entries.forEach(([route, services]) => {
+    output += `${route}:\n`;
+    services
+      .filter(service => text(service.departureTime?.value))
+      .forEach(service => {
+        output += `  ID ${service.serviceNumber} ${clock(service.departureTime)} ${text(service.departureLocation)}` +
+          ` — ${clock(service.arrivalTime)} ${text(service.arrivalLocation)}`;
+        if (text(service.nextDepartureTime?.value) && text(service.nextDepartureLocation)) {
+          const nextCourse = /^\d{1,2}\/\d{1,2}$/.test(text(service.nextCircuitNumber))
+            ? ` ${text(service.nextCircuitNumber)}`
+            : '';
+          output += ` | ${clock(service.nextDepartureTime)} ${text(service.nextDepartureLocation)}${nextCourse}`;
+        }
+        output += '\n';
+      });
+    output += '\n';
+  });
+  return output.trim();
 }
 
 function collectInterruptions(schedule) {

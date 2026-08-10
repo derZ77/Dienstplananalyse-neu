@@ -166,16 +166,20 @@ function assignLegacyShifts(services, timeframe, sharedServiceIds) {
 
 function groupLegacyRoutes(services) {
   const routes = new Map();
-  services.forEach(service => service.activities.forEach(activity => {
+  services.forEach(service => service.activities.forEach((activity, activityIndex) => {
     const routeKey = legacyRouteKey(activity);
     if (routeKey === null) return;
+    const nextActivity = service.activities[activityIndex + 1] || null;
     const entries = routes.get(routeKey) || [];
     entries.push({
       serviceNumber: service.serviceNumber,
       departureTime: structuredClone(activity.departureTime),
       arrivalTime: structuredClone(activity.arrivalTime),
       departureLocation: normalized(activity.departureLocation),
-      arrivalLocation: normalized(activity.arrivalLocation)
+      arrivalLocation: normalized(activity.arrivalLocation),
+      nextDepartureTime: structuredClone(nextActivity?.departureTime),
+      nextDepartureLocation: normalized(nextActivity?.departureLocation),
+      nextCircuitNumber: normalized(nextActivity?.circuitNumber)
     });
     routes.set(routeKey, entries);
   }));
