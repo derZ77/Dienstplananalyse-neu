@@ -349,52 +349,64 @@ function collectInterruptions(schedule) {
 }
 
 function renderInterruptions(interruptions, schedule, sharedServiceNumbers) {
-  const normalized = interruptions
-    .filter(interruption => Number.isInteger(interruption.durationMinutes) && interruption.durationMinutes >= MIN_NORMAL_PAUSE_MINUTES)
+  const orderedInterruptions = interruptions
+    .filter(interruption => Number.isInteger(interruption.durationMinutes))
     .sort(compareInterruption);
-  const normal = normalized.filter(interruption =>
-    interruption.durationMinutes <= MAX_NORMAL_PAUSE_MINUTES && !sharedServiceNumbers.has(interruption.serviceNumber));
-  const shared = normalized.filter(interruption =>
-    interruption.durationMinutes <= MAX_NORMAL_PAUSE_MINUTES && sharedServiceNumbers.has(interruption.serviceNumber));
-  const extended = normalized.filter(interruption => interruption.durationMinutes > MAX_NORMAL_PAUSE_MINUTES);
+  const legacyPauses = orderedInterruptions.filter(interruption =>
+    interruption.durationMinutes >= MIN_NORMAL_PAUSE_MINUTES &&
+    interruption.durationMinutes <= MAX_NORMAL_PAUSE_MINUTES &&
+    !sharedServiceNumbers.has(interruption.serviceNumber));
+  const additional = orderedInterruptions.filter(interruption => !legacyPauses.includes(interruption));
+  const sections = ['Pausen zwischen 30 und 120 Minuten:', ''];
 
-  const sections = ['Pausen und Dienstunterbrechungen:', ''];
-  sections.push(`Normale Pausen 30–120 Minuten: ${normal.length}`);
-  sections.push(normal.length ? renderInterruptionEntries(normal, schedule, { normal: true }) : 'Keine normalen Pausen 30–120 Minuten gefunden.');
-  sections.push('', `Unterbrechungen geteilter Dienste 30–120 Minuten: ${shared.length}`);
-  sections.push(shared.length ? renderInterruptionEntries(shared, schedule, { normal: true }) : 'Keine Unterbrechungen geteilter Dienste 30–120 Minuten gefunden.');
-  sections.push('', `Dienstunterbrechungen >120 Minuten: ${extended.length}`);
-  sections.push(extended.length ? renderInterruptionEntries(extended, schedule, { normal: false }) : 'Keine Dienstunterbrechungen >120 Minuten gefunden.');
-
-  if (!normal.length && !shared.length && !extended.length) sections.push('', 'Keine Pausen oder Dienstunterbrechungen erkannt.');
+  sections.push(legacyPauses.length
+    ? renderLegacyPauseEntries(legacyPauses, schedule)
+    : 'Keine Pausen im Bereich 30–120 Minuten gefunden.');
+  if (additional.length) {
+    sections.push('', 'Zusätzliche Canonical-Unterbrechungen:', '', renderCanonicalInterruptionEntries(additional));
+  }
   return sections.join('\n').trim();
 }
 
-function renderInterruptionEntries(interruptions, schedule, { normal }) {
+function renderLegacyPauseEntries(interruptions, schedule) {
   const services = new Map((schedule?.services || []).map(service => [service.id, service]));
-  const previousEndByService = new Map();
-  return interruptions.map(interruption => {
+  const grouped = new Map();
+  interruptions.forEach(interruption => {
+    const entries = grouped.get(interruption.serviceNumber) || [];
+    entries.push(interruption);
+    grouped.set(interruption.serviceNumber, entries);
+  });
+  return [...grouped.entries()].sort(([left], [right]) => number(left) - number(right)).map(([serviceNumber, entries]) => [
+    `ID ${text(serviceNumber) || '-'}:`,
+    ...entries.map(interruption => {
     const service = services.get(interruption.serviceId);
-    const workStart = previousEndByService.get(interruption.serviceId) || service?.begin || null;
-    const workMinutes = durationMinutes(workStart, interruption.start);
-    previousEndByService.set(interruption.serviceId, interruption.end);
-    const location = interruptionLocation(interruption);
-    const requiredPauseMinutes = SPECIAL_PAUSE_LOCATIONS.has(location) ? 39 : 33;
-    const pauseSufficient = interruption.durationMinutes >= requiredPauseMinutes;
-    const workInRange = Number.isInteger(workMinutes) && workMinutes >= MIN_WORK_BEFORE_PAUSE_MINUTES && workMinutes <= MAX_WORK_BEFORE_PAUSE_MINUTES;
-    const bvText = normal
-      ? (pauseSufficient && workInRange ? 'OK' : 'nicht OK')
-      : (workInRange ? 'OK' : 'nicht OK');
-    const locationText = location || 'unbekannt';
-    return [
-      `ID ${text(interruption.serviceNumber) || '-'}:`,
-      `  ${interruptionLabel(interruption)}: ${clock(interruption.start)}–${clock(interruption.end)} | ${interruption.durationMinutes} min`,
-      `  Ort: ${locationText}`,
-      `  Arbeitszeit vor Unterbrechung: ${Number.isInteger(workMinutes) ? formatMinutes(workMinutes) : 'nicht auswertbar'}`,
-      normal ? `  Mindestpause am Ort ${locationText}: ${requiredPauseMinutes} min` : '',
-      `  BV-Hinweis: ${bvText}`
-    ].filter(Boolean).join('\n');
-  }).join('\n\n');
+      const before = linkedActivity(service, interruption, 'before');
+      const after = linkedActivity(service, interruption, 'after');
+      return `  Pause: ${clock(interruption.start)} ${text(before?.arrivalLocation) || text(interruption.startLocation)}${courseText(before)} → ` +
+        `${clock(interruption.end)} ${text(after?.departureLocation) || text(interruption.endLocation)}${courseText(after)} | ${interruption.durationMinutes} min`;
+    })
+  ].join('\n')).join('\n\n');
+}
+
+function linkedActivity(service, interruption, direction) {
+  const activities = service?.activities || [];
+  const id = direction === 'before' ? interruption.precedingActivityId : interruption.followingActivityId;
+  const time = direction === 'before' ? interruption.start?.minutesSinceStartOfDay : interruption.end?.minutesSinceStartOfDay;
+  return activities.find(activity => activity.id === id) || activities.find(activity =>
+    (direction === 'before' ? activity.arrivalTime?.minutesSinceStartOfDay : activity.departureTime?.minutesSinceStartOfDay) === time);
+}
+
+function courseText(activity) {
+  const course = text(activity?.circuitNumber);
+  return course ? ` ${course}` : '';
+}
+
+function renderCanonicalInterruptionEntries(interruptions) {
+  return interruptions.map(interruption => [
+    `ID ${text(interruption.serviceNumber) || '-'}:`,
+    `  ${interruptionLabel(interruption)}: ${clock(interruption.start)}–${clock(interruption.end)} | ${interruption.durationMinutes} min`,
+    `  Ort: ${interruptionLocation(interruption) || 'unbekannt'}`
+  ].join('\n')).join('\n\n');
 }
 
 function interruptionLabel(interruption) {

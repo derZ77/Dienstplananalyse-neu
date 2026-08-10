@@ -34,7 +34,7 @@ async function loadLegacyTabularParser() {
   return context.parseTabular;
 }
 
-test('Phase 6.4: Block 10 projiziert die Legacy-Pausenaussage mit Ort, Arbeitszeit und BV-Hinweis', async () => {
+test('Phase 6.4: Block 10 projiziert die tabellarische Legacy-Pause mit Ort und Kurs', async () => {
   const rows = pauseReferenceRows();
   const legacy = await loadLegacyTabularParser();
   const legacyOutput = legacy(rows, {}).pauseHtml;
@@ -45,12 +45,10 @@ test('Phase 6.4: Block 10 projiziert die Legacy-Pausenaussage mit Ort, Arbeitsze
   assert.match(legacyOutput, /Mindestpause am Ort HLZ: 39 min/);
   assert.match(legacyOutput, /Arbeitszeit vor Pause 03:29.*außerhalb 03:30 bis 04:30 Stunden/);
 
-  assert.match(output, /Normale Pausen 30–120 Minuten: 1/);
+  assert.match(output, /^Pausen zwischen 30 und 120 Minuten:/);
   assert.match(output, /ID 2211/);
-  assert.match(output, /Dienstunterbrechung: 07:15–07:50 \| 35 min/);
-  assert.match(output, /Ort: HLZ/);
-  assert.match(output, /Arbeitszeit vor Unterbrechung: 03:29/);
-  assert.match(output, /BV-Hinweis: nicht OK/);
+  assert.match(output, /Pause: 07:15 HLZ 12\/1 → 07:50 HLZ 12\/1 \| 35 min/);
+  assert.doesNotMatch(output, /BV-Hinweis|Arbeitszeit vor Unterbrechung|Mindestpause/);
 });
 
 test('Phase 6.4: echtes JNV-PDF zeigt jeden strukturierten Unterbrechungseintrag in Block 10', async () => {
@@ -60,7 +58,8 @@ test('Phase 6.4: echtes JNV-PDF zeigt jeden strukturierten Unterbrechungseintrag
   const output = createOriginalBlockViewModel(result.canonicalSchedule).pauseHtml;
 
   assert.ok(interruptions.length > 0, 'JNV-Referenz enthält übernommene Unterbrechungen');
-  assert.match(output, /Pausen und Dienstunterbrechungen:/);
+  assert.match(output, /Pausen zwischen 30 und 120 Minuten:/);
+  assert.match(output, /Zusätzliche Canonical-Unterbrechungen:/);
   assert.equal((output.match(/Dienstunterbrechung:/g) || []).length, interruptions.length);
   interruptions.forEach(interruption => {
     assert.match(output, new RegExp(`${interruption.start.value}–${interruption.end.value} \\| ${interruption.durationMinutes} min`));
@@ -73,6 +72,5 @@ test('Phase 6.4: echtes JES-PDF verliert keine Unterbrechungen und behält den B
   const output = createOriginalBlockViewModel(result.canonicalSchedule).pauseHtml;
 
   assert.equal(result.canonicalSchedule.interruptions.length, 0);
-  assert.match(output, /Pausen und Dienstunterbrechungen:/);
-  assert.match(output, /Keine Pausen oder Dienstunterbrechungen erkannt/);
+  assert.equal(output, 'Pausen zwischen 30 und 120 Minuten:\n\nKeine Pausen im Bereich 30–120 Minuten gefunden.');
 });
