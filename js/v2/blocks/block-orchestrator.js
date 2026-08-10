@@ -107,8 +107,9 @@ function renderShared(services) {
 }
 
 function renderLocations(locations) {
-  if (!locations.length) return 'Unterschiedliche Orte: keine';
-  return `Unterschiedliche Orte: ${ordered(locations.map(location => location.serviceNumber)).join(', ')}\n` +
+  if (!locations.length) return 'Unterschiedliche Orte: ';
+  return `Unterschiedliche Orte: ${ordered(locations.map(location => location.serviceNumber)).join(', ')}\n\n` +
+    'Zusätzliche Dienstort-Informationen:\n' +
     locations.map(location => `ID ${location.serviceNumber}: ${location.startLocation} → ${location.endLocation}`).join('\n');
 }
 
