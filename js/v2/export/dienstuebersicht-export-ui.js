@@ -1,7 +1,7 @@
 /** Source-neutral productive action for the original Dienstübersicht XLSX. */
 import { buildDienstuebersichtExportModel, downloadDienstuebersichtExport } from './dienstuebersicht-xlsx-export.js';
 
-export const DIENSTUEBERSICHT_EXPORT_BUTTON_LABEL = 'Dienstübersicht XLSX';
+export const DIENSTUEBERSICHT_EXPORT_BUTTON_LABEL = 'Dienstübersicht als XLSX exportieren';
 
 const scheduleOf = state => {
   const primary = state?.primaryImport;
@@ -30,7 +30,7 @@ export function createDienstuebersichtExportController(root, options = {}) {
   const download = options.download ?? downloadDienstuebersichtExport;
   let sessionState = null; let current = resolveDienstuebersichtExportState(null); let lastResult = null;
   if (!root || !doc?.createElement) return { update: state => resolveDienstuebersichtExportState(state), triggerExport: () => null, getState: () => current };
-  const container = doc.createElement('div'); container.id = 'dienstuebersicht-export-actions'; container.hidden = true;
+  const container = doc.createElement('div'); container.id = 'dienstuebersicht-export-actions'; container.className = 'export-actions dienstuebersicht-export-actions'; container.hidden = true;
   const button = doc.createElement('button'); button.type = 'button'; button.id = 'dienstuebersicht-export-button'; button.textContent = DIENSTUEBERSICHT_EXPORT_BUTTON_LABEL;
   const status = doc.createElement('p'); status.className = 'result'; status.setAttribute('aria-live', 'polite');
   container.append(button, status); root.appendChild(container);

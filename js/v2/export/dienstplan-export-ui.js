@@ -222,7 +222,7 @@ export function createDienstplanExportController(root, options = {}) {
 function buildView(doc, root) {
   const container = doc.createElement('div');
   container.id = 'dienstplan-export-actions';
-  container.className = 'dienstplan-export-actions';
+  container.className = 'export-actions dienstplan-export-actions';
   container.hidden = true;
 
   const button = doc.createElement('button');

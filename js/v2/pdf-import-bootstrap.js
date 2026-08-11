@@ -6,6 +6,8 @@ import { createDienstplanExportController } from './export/dienstplan-export-ui.
 import { createDienstuebersichtExportController } from './export/dienstuebersicht-export-ui.js';
 import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
 import { clearOriginalBlocks, renderOriginalBlocks } from './blocks/block-renderer.js';
+import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
+import { initializeAnalysisSearch } from './ui/analysis-search-controller.js';
 
 // Phase 3F: one memory-only session holds the primary (captured from the unchanged
 // single import) and an optional companion. No storage, no network, no matching.
@@ -34,6 +36,7 @@ const combinationStatusEl = document.getElementById('combination-result');
 const matchingStatusEl = document.getElementById('match-result');
 const ruleAnalysisStatusEl = document.getElementById('rule-analysis-result');
 const primaryStatusEl = document.getElementById('pdf-import-result');
+const fileResultEl = document.getElementById('file-result');
 
 function setStatus(element, message) {
   if (!element) return;
@@ -52,6 +55,7 @@ function primaryAnalysisStatus(state) {
 }
 
 function render(state) {
+  if (fileResultEl) fileResultEl.textContent = buildImportWorkflowSummary(state);
   const primaryStatus = primaryAnalysisStatus(state);
   if (primaryStatus) setStatus(primaryStatusEl, primaryStatus);
   setStatus(companionStatusEl, state.companionStatus);
@@ -100,3 +104,5 @@ if (companionInput) {
     renderAndAnalyze(await session.setCompanionFile(file));
   });
 }
+
+initializeAnalysisSearch({ document });

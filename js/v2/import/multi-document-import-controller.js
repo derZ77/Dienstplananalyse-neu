@@ -114,7 +114,7 @@ export function createMultiDocumentSession({
   generateBundleId = defaultBundleId,
   generateTimestamp = defaultTimestamp
 } = {}) {
-  const state = { primaryImport: null, companionImport: null, primaryFileName: null, bundle: null, matching: null, companionStatus: '', combinationStatus: '', matchingStatus: '', ruleAnalysis: null, checkReport: null, ruleAnalysisStatus: '' };
+  const state = { primaryImport: null, companionImport: null, primaryFileName: null, companionFileName: null, bundle: null, matching: null, companionStatus: '', combinationStatus: '', matchingStatus: '', ruleAnalysis: null, checkReport: null, ruleAnalysisStatus: '' };
 
   // A monotonically increasing generation identifies the current match state. Each rebuild bumps
   // it; `analyzeRules()` runs at most once per generation and discards stale async results.
@@ -179,7 +179,7 @@ export function createMultiDocumentSession({
 
   /** Import + validate an optional companion (only exact Wagenkarte / Umlauftafel). */
   async function setCompanionFile(file) {
-    if (!file) { state.companionImport = null; state.companionStatus = ''; return rebuild(); } // removed → clear
+    if (!file) { state.companionImport = null; state.companionFileName = null; state.companionStatus = ''; return rebuild(); } // removed → clear
     let result;
     try {
       result = await importCompanion(file);
@@ -190,6 +190,7 @@ export function createMultiDocumentSession({
     const { type, confidence } = result?.classification || {};
     if (COMPANION_TYPES.has(type) && confidence === 'exact') {
       state.companionImport = result;
+      state.companionFileName = typeof file.name === 'string' ? file.name : null;
       state.companionStatus = companionAcceptedStatus(result);
       return rebuild();
     }

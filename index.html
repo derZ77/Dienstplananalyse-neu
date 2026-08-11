@@ -125,6 +125,39 @@
 			font-size: 0.95rem;
 		}
 
+		#file-result { margin-top: 0.75rem; }
+
+		.export-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.55rem 0.75rem;
+			align-items: center;
+			margin-top: 1rem;
+			padding-top: 1rem;
+			border-top: 1px solid #d7e1e6;
+		}
+
+		.export-actions button,
+		.search-actions button {
+			min-height: 2.75rem;
+			border: none;
+			border-radius: 999px;
+			padding: 0.55rem 1rem;
+			background: #0277bd;
+			color: #fff;
+			font: inherit;
+			font-weight: 600;
+			cursor: pointer;
+		}
+
+		.export-actions button:hover:not(:disabled),
+		.search-actions button:hover { background: #01579b; }
+		.export-actions button:disabled { cursor: not-allowed; opacity: 0.55; }
+		.export-actions .result { flex: 1 1 15rem; margin: 0; padding: 0.65rem 0.8rem; }
+
+		.search-actions { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+		.search-actions input { flex: 1 1 16rem; min-width: 0; min-height: 2.75rem; padding: 0.5rem 0.65rem; border-radius: 8px; border: 1px solid #b0bec5; font: inherit; }
+
 		/* --- KI-Chat Widget --- */
 		.chat-toggle {
 			position: fixed;
@@ -431,6 +464,13 @@
 
 		@media (max-width: 720px) {
 			body { padding: 1rem; }
+			.block { padding: 1.1rem; border-radius: 12px; }
+			.block:hover { transform: none; }
+			input[type="file"] { width: 100%; min-height: 2.75rem; }
+			.export-actions { align-items: stretch; }
+			.export-actions button, .search-actions button { width: 100%; }
+			.export-actions .result { flex-basis: 100%; }
+			.search-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
 			.check-explorer-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 			.check-explorer-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 			.review-dashboard-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -501,7 +541,7 @@
 		<div class="block">
 			<h2>0. Datei auswählen</h2>
 			<input id="file-input" type="file" accept=".xlsx,.xls,.pdf,application/pdf" />
-			<div id="file-result" class="result">Noch keine Datei ausgewählt.</div>
+			<div id="file-result" class="result" aria-live="polite">Noch keine Datei ausgewählt.</div>
 			<div id="pdf-import-result" class="result" hidden aria-live="polite"></div>
 			<!-- Phase 4.5: the local Dienstplan export. Filled by pdf-import-bootstrap.js and hidden
 			     unless a JNV-/JES-Dienstplan-PDF was imported successfully and is exportable. -->
@@ -522,9 +562,9 @@
 		<!-- Such-Block -->
 		<div class="block">
 			<h2>Suche in den Auswertungen</h2>
-			<div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
-				<input id="search-input" type="text" placeholder="z. B. ID 72, 5/11, BBU ..." style="flex:1; min-width:180px; padding:0.4rem; border-radius:8px; border:1px solid #b0bec5;" />
-				<button id="search-clear" style="border:none; border-radius:999px; padding:0.4rem 0.9rem; background:#0277bd; color:#fff; cursor:pointer;">
+			<div class="search-actions">
+				<input id="search-input" type="search" placeholder="z. B. Dienst 72, Linie, Kurs oder Ort" aria-label="Suche in den Auswertungen" />
+				<button id="search-clear" type="button">
 					Zurücksetzen
 				</button>
 			</div>
@@ -3014,73 +3054,6 @@
 
 	<!-- Phase 1: KI-Hilfsfunktionen (Backend-URL, Prompt-Builder) entfernt. -->
 	<!-- Phase 1: KI-Chat-Widget-Logik entfernt. -->
-	<!-- Suchfunktion (mit Plan-Typ im Filter enthalten) -->
-	<script>
-		(function() {
-			const searchInput = document.getElementById('search-input');
-			const clearBtn = document.getElementById('search-clear');
-			const info = document.getElementById('search-info');
-
-			if (!searchInput || !info) return;
-
-			const resultIds = [
-				'plan-type-result',
-				'count-result',
-				'shared-result',
-				'reserve-result',
-				'long-result',
-				'loc-result',
-				'segment-result',
-				'real-driving-time-result',
-				'shift-result',
-				'route-result',
-				'pause-result'
-			];
-
-			function applySearch() {
-				const term = searchInput.value.trim().toLowerCase();
-				let hitCount = 0;
-
-				resultIds.forEach(id => {
-					const el = document.getElementById(id);
-					if (!el || !el.parentElement) return;
-
-					const text = (el.textContent || '').toLowerCase();
-
-					if (!term) {
-						el.parentElement.style.display = '';
-						return;
-					}
-
-					if (text.includes(term)) {
-						el.parentElement.style.display = '';
-						hitCount++;
-					} else {
-						el.parentElement.style.display = 'none';
-					}
-				});
-
-				if (!term) {
-					info.textContent = 'Filter ist deaktiviert.';
-				} else if (hitCount === 0) {
-					info.textContent = `Kein Block enthält „${searchInput.value}“.`;
-				} else if (hitCount === 1) {
-					info.textContent = `1 Block enthält „${searchInput.value}“.`;
-				} else {
-					info.textContent = `${hitCount} Blöcke enthalten „${searchInput.value}“.`;
-				}
-			}
-
-			searchInput.addEventListener('input', applySearch);
-			if (clearBtn) {
-				clearBtn.addEventListener('click', () => {
-					searchInput.value = '';
-					applySearch();
-				});
-			}
-		})();
-	</script>
-
 	<!-- Phase 1: KI-gestützte Auswertung entfernt. -->
 	<script type="module" src="js/v2/pdf-import-bootstrap.js"></script>
 	<script type="module" src="js/v2/check-explorer-bootstrap.js"></script>
