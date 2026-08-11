@@ -5,6 +5,7 @@
  */
 
 import { analyzeCanonicalScheduleWithMigratedLegacyChecks } from '../analysis/analysis-core.js';
+import { normalizeTimeline } from '../pdf/timeline-normalization.js';
 
 const UNAVAILABLE_DRIVING_TIME = [
   'Lenkzeit-/Fahrzeitbewertung nicht verfügbar.',
@@ -473,16 +474,48 @@ function renderPauseTimingAssessment(interruptions, schedule) {
 }
 
 function structuredWorkMinutesBeforePause(service, interruption) {
-  const pauseStart = interruption.start?.minutesSinceStartOfDay;
+  const timeline = normalizedServiceActivities(service);
+  const pauseStart = relativePauseStart(timeline, interruption);
   if (!Number.isInteger(pauseStart)) return null;
-  const activities = (service?.activities || []).filter(activity =>
-    Number.isInteger(activity.departureTime?.minutesSinceStartOfDay) &&
-    Number.isInteger(activity.arrivalTime?.minutesSinceStartOfDay) &&
-    activity.arrivalTime.minutesSinceStartOfDay <= pauseStart &&
-    !isBreakActivity(activity));
+  const activities = timeline.filter(entry =>
+    Number.isInteger(entry.start) &&
+    Number.isInteger(entry.end) &&
+    entry.end <= pauseStart &&
+    !isBreakActivity(entry.activity));
   if (!activities.length) return null;
-  const durations = activities.map(activity => durationMinutes(activity.departureTime, activity.arrivalTime));
+  const durations = activities.map(entry => durationMinutes(entry.activity.departureTime, entry.activity.arrivalTime));
   return durations.every(Number.isInteger) ? durations.reduce((sum, value) => sum + value, 0) : null;
+}
+
+function normalizedServiceActivities(service) {
+  const activities = service?.activities || [];
+  const timeline = normalizeTimeline([
+    service?.begin?.value ?? null,
+    ...activities.flatMap(activity => [activity?.departureTime?.value ?? null, activity?.arrivalTime?.value ?? null]),
+    service?.end?.value ?? null
+  ]);
+  return activities.map((activity, index) => ({
+    activity,
+    start: timeline[1 + index * 2]?.relativeMinutes ?? null,
+    end: timeline[2 + index * 2]?.relativeMinutes ?? null
+  }));
+}
+
+function relativePauseStart(timeline, interruption) {
+  const activityId = interruption?.activityId;
+  const start = interruption?.start?.value;
+  const end = interruption?.end?.value;
+  const match = timeline.find(entry => entry.activity?.id === activityId) || timeline.find(entry =>
+    entry.activity?.departureTime?.value === start && entry.activity?.arrivalTime?.value === end);
+  if (Number.isInteger(match?.start)) return match.start;
+
+  // Older canonical interruption records may not retain the pause activity
+  // identity. An activity ending exactly at the pause start is a safe anchor
+  // on the already normalised service timeline.
+  const pauseClock = interruption?.start?.minutesSinceStartOfDay;
+  const precedingActivity = timeline.find(entry =>
+    entry.activity?.arrivalTime?.minutesSinceStartOfDay === pauseClock);
+  return precedingActivity?.end ?? null;
 }
 
 function isBreakActivity(activity) {
