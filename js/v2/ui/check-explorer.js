@@ -252,7 +252,7 @@ function renderRows(root, model) {
     const heading = document.createElement('tr');
     heading.className = 'check-explorer-group';
     const headingCell = document.createElement('th');
-    headingCell.colSpan = 7;
+    headingCell.colSpan = 4;
     headingCell.scope = 'colgroup';
     headingCell.textContent = model.state.groupBy === 'service' ? `Dienst: ${group.key}` : `Kategorie: ${group.key}`;
     heading.append(headingCell);
@@ -264,11 +264,52 @@ function renderRows(root, model) {
 function createRow(row) {
   const element = document.createElement('tr');
   element.className = `check-explorer-row check-tone-${getTone(row)}`;
-  for (const value of [row.category, row.id, row.name, row.status, row.severity, row.serviceLabel, row.message]) {
-    const cell = document.createElement('td');
-    cell.textContent = value || '–';
-    element.append(cell);
-  }
+  const rule = document.createElement('td');
+  rule.textContent = [row.id, row.name].filter(Boolean).join(' — ') || '–';
+
+  const status = document.createElement('td');
+  status.textContent = statusLabel(row.status);
+
+  const services = document.createElement('td');
+  services.append(createAffectedServicesDetails(row));
+
+  const message = document.createElement('td');
+  message.textContent = row.message || '–';
+  const relevantValues = createRelevantValuesDetails(row.result?.details);
+  if (relevantValues) message.append(document.createElement('br'), relevantValues);
+
+  element.append(rule, status, services, message);
+  return element;
+}
+
+function statusLabel(status) {
+  return ({ PASS: 'Bestanden', FAIL: 'Prüfauffälligkeit', SKIP: 'Übersprungen', NOT_APPLICABLE: 'Nicht anwendbar' })[status]
+    || status || '–';
+}
+
+function createAffectedServicesDetails(row) {
+  if (!row.serviceNumbers.length) return document.createTextNode('Kein Dienstbezug');
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = `${row.serviceNumbers.length} ${row.serviceNumbers.length === 1 ? 'Dienst' : 'Dienste'}`;
+  const list = document.createElement('span');
+  list.textContent = row.serviceNumbers.join(', ');
+  details.append(summary, list);
+  return details;
+}
+
+/** Scalar facts are useful for manual review; raw objects and technical structures never enter the view. */
+function createRelevantValuesDetails(details) {
+  const values = Object.entries(details || {})
+    .filter(([, value]) => value === null || ['string', 'number', 'boolean'].includes(typeof value))
+    .slice(0, 8);
+  if (!values.length) return null;
+  const element = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = 'Relevante Werte';
+  const content = document.createElement('span');
+  content.textContent = values.map(([key, value]) => `${key}: ${value}`).join(' · ');
+  element.append(summary, content);
   return element;
 }
 

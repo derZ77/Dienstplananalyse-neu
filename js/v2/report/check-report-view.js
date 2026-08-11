@@ -55,6 +55,13 @@ function renderHeader(header) {
     </header>`;
 }
 
+/** Technical runner errors are material, but must not interrupt the normal rule-reading flow. */
+function renderTechnicalErrors(entries) {
+  if (!entries.length) return '';
+  const items = entries.map(entry => `<li><strong>${escape(entry.module)}</strong> (${escape(entry.code)}): ${escape(entry.message || 'Keine weitere Beschreibung.')}</li>`).join('');
+  return `<details class="report-technical"><summary>Technische Details (${entries.length})</summary><ul>${items}</ul></details>`;
+}
+
 function renderHandover(entries) {
   if (!entries.length) return '';
   const items = entries.map(entry => `<li class="report-handover-entry">
@@ -164,6 +171,7 @@ export function renderCheckReportHtml(viewModel) {
 
   return `<section class="report" role="region" aria-labelledby="pruefbericht-title">
       ${renderHeader(model.header)}
+      ${renderTechnicalErrors(model.runnerErrorDetails || [])}
       ${renderActions(model)}
       ${renderFilters(model)}
       ${body}

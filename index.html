@@ -447,20 +447,20 @@
 		}
 
 		.review-dashboard-table-wrap { overflow-x: auto; border: 1px solid #d7e1e6; border-radius: 8px; }
-		.review-dashboard-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 0.86rem; }
+		.review-dashboard-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.86rem; }
 		.review-dashboard-table th,
 		.review-dashboard-table td { padding: 0.55rem; border-bottom: 1px solid #e3edf2; text-align: left; vertical-align: top; }
 		.review-dashboard-table thead th { background: #e1f5fe; color: #01579b; white-space: nowrap; }
 		.review-service-row.review-state-critical { background: #ffebee; }
 		.review-service-row.review-state-warning { background: #fff8dd; }
 		.review-service-row.review-state-unremarkable { background: #edf7ed; }
-		.review-dashboard-toggle { border: 1px solid #0277bd; border-radius: 999px; padding: 0.3rem 0.65rem; background: #fff; color: #0277bd; font: inherit; cursor: pointer; white-space: nowrap; }
-		.review-dashboard-details td { padding: 0.8rem; background: #f5faff; }
-		.review-dashboard-checks { width: 100%; min-width: 700px; margin-top: 0.6rem; border-collapse: collapse; font-size: 0.82rem; }
-		.review-dashboard-checks th,
-		.review-dashboard-checks td { padding: 0.45rem; border: 1px solid #d7e1e6; text-align: left; vertical-align: top; }
-		.review-dashboard-checks th { background: #e1f5fe; color: #01579b; }
 		.review-dashboard-empty { margin: 0; padding: 0.8rem; color: #546e7a; }
+		.review-service-row.review-state-critical td:nth-child(4),
+		.review-service-row.review-state-warning td:nth-child(4) { font-weight: 700; color: #8a1f11; }
+		.check-explorer-details { margin-top: .8rem; border: 1px solid #d7e1e6; border-radius: 8px; padding: .25rem .75rem .75rem; }
+		.check-explorer-details > summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
+		.check-explorer-advanced { margin: .5rem 0; border: 0; padding: 0; }
+		.check-explorer-advanced > summary { cursor: pointer; color: #01579b; }
 
 		@media (max-width: 720px) {
 			body { padding: 1rem; }
@@ -474,6 +474,16 @@
 			.check-explorer-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 			.check-explorer-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 			.review-dashboard-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			/* The prioritisation list is intentionally a short card list on phones, not a wide data grid. */
+			.review-dashboard-table { min-width: 0; }
+			.review-dashboard-table thead { display: none; }
+			.review-dashboard-table,
+			.review-dashboard-table tbody,
+			.review-dashboard-table tr,
+			.review-dashboard-table td { display: block; width: 100%; box-sizing: border-box; }
+			.review-dashboard-table tr { padding: .45rem .55rem; border-bottom: 1px solid #d7e1e6; }
+			.review-dashboard-table td { display: grid; grid-template-columns: 6.25rem minmax(0, 1fr); gap: .45rem; padding: .28rem 0; border: 0; }
+			.review-dashboard-table td::before { content: attr(data-label); color: #455a64; font-weight: 600; }
 		}
 
 		/* Phase 3I.34 — Prüfbericht. Status never travels by colour alone: every badge carries its
@@ -487,6 +497,16 @@
 		#pruefbericht .report-status { display: inline-flex; gap: .35rem; align-items: baseline; border: 1px solid currentColor; border-radius: .25rem; padding: .05rem .4rem; font-size: .8rem; }
 		#pruefbericht .report-status[data-status="FAIL"] { color: #8a1f11; }
 		#pruefbericht .report-status[data-status="PASS"] { color: #1d5c2f; }
+		#pruefbericht .report-status[data-status="FAIL"] { background: #fff0ed; border-color: #b73524; }
+		#pruefbericht .report-status[data-status="PASS"] { background: #edf8ef; border-color: #2e7d32; }
+		#pruefbericht .report-status[data-status="SKIP"],
+		#pruefbericht .report-status[data-status="NOT_APPLICABLE"] { color: #546e7a; background: #f3f6f7; border-color: #90a4ae; }
+		#pruefbericht .report-result[data-status="FAIL"] { border-left: 4px solid #b73524; }
+		#pruefbericht .report-result[data-status="PASS"] { border-left: 4px solid #2e7d32; }
+		#pruefbericht .report-result[data-status="SKIP"],
+		#pruefbericht .report-result[data-status="NOT_APPLICABLE"] { border-left: 4px solid #90a4ae; }
+		#pruefbericht .report-technical { margin: .75rem 0; border: 1px solid #ef6c00; border-radius: .4rem; padding: .4rem .65rem; }
+		#pruefbericht .report-technical summary { cursor: pointer; font-weight: 600; }
 		#pruefbericht .report-result-id { font-family: ui-monospace, monospace; font-weight: 600; }
 		#pruefbericht .report-result-name { flex: 1 1 14rem; }
 		#pruefbericht .report-result-body { padding: 0 .7rem .7rem; }
@@ -636,22 +656,21 @@
 
 		<!-- V2: verdichtet vorhandene CheckReports auf Dienstebene, ohne Checks auszuführen. -->
 		<section id="review-dashboard" class="block" aria-labelledby="review-dashboard-title">
-			<h2 id="review-dashboard-title">Dienstübersicht / Review Dashboard</h2>
-			<p>Prüfergebnisse je Dienst priorisieren und bei Bedarf im dienstbezogenen Check Explorer öffnen.</p>
+			<h2 id="review-dashboard-title">Auffälligkeitsübersicht</h2>
+			<p>Schnelle Priorisierung: nur Dienste mit echten Prüfauffälligkeiten werden standardmäßig angezeigt.</p>
 			<div class="review-dashboard-statistics" aria-label="Dienstübersicht Statistik">
-				<div class="review-dashboard-stat"><strong data-review-stat="totalServices">0</strong>Gesamtdienste</div>
-				<div class="review-dashboard-stat critical"><strong data-review-stat="criticalServices">0</strong>Kritische Dienste</div>
-				<div class="review-dashboard-stat warning"><strong data-review-stat="warningServices">0</strong>Dienste mit Warnungen</div>
-				<div class="review-dashboard-stat unremarkable"><strong data-review-stat="unremarkableServices">0</strong>Unauffällige Dienste</div>
+				<div class="review-dashboard-stat"><strong data-review-stat="evaluatedServices">0</strong>Ausgewertete Dienste</div>
+				<div class="review-dashboard-stat warning"><strong data-review-stat="attentionServices">0</strong>Dienste mit Auffälligkeiten</div>
+				<div class="review-dashboard-stat unremarkable"><strong data-review-stat="unremarkableServices">0</strong>Ohne Regelauffälligkeit</div>
 			</div>
 			<div class="review-dashboard-filter">
 				<label>Ansicht
-					<select data-review-dashboard="filter"><option value="all">Alle Dienste</option><option value="critical">Nur kritische Dienste</option><option value="warning">Nur Dienste mit Warnungen</option><option value="unremarkable">Nur Dienste ohne Auffälligkeiten</option></select>
+					<select data-review-dashboard="filter"><option value="findings" selected>Nur Auffälligkeiten</option><option value="all">Alle ausgewerteten Dienste</option><option value="critical">Nur kritische Dienste</option><option value="warning">Nur Dienste mit Warnungen</option><option value="unremarkable">Nur Dienste ohne Regelauffälligkeit</option></select>
 				</label>
 			</div>
 			<div class="review-dashboard-table-wrap">
 				<table class="review-dashboard-table">
-					<thead><tr><th>Dienstnummer</th><th>Gesamtstatus</th><th>Anzahl Checks</th><th>PASS</th><th>WARNING</th><th>ERROR</th><th>VIOLATION</th><th>Höchste Severity</th><th>Details</th></tr></thead>
+					<thead><tr><th>Dienst</th><th>Auffälligkeit</th><th>Regel</th><th>Status</th></tr></thead>
 					<tbody data-review-dashboard="rows"></tbody>
 				</table>
 				<p class="review-dashboard-empty" data-review-dashboard="empty" aria-live="polite">Noch kein CheckReport vorhanden.</p>
@@ -665,17 +684,13 @@
 		</section>
 
 		<section id="check-explorer" class="block" aria-labelledby="check-explorer-title">
-			<h2 id="check-explorer-title">Check Explorer</h2>
-			<p>Vorhandene Prüfergebnisse filtern, sortieren und nach Kategorie oder Dienst gruppieren.</p>
+			<h2 id="check-explorer-title">Detailprüfung einzelner Regeln</h2>
+			<p>Optionale Detailansicht zum Prüfbericht: Regeln und betroffene Dienste gezielt nachprüfen.</p>
+			<details class="check-explorer-details">
+				<summary>Detailprüfung öffnen</summary>
 			<div class="check-explorer-controls" aria-label="CheckReport filtern und sortieren">
-				<label>Kategorie
-					<select data-check-explorer="category"><option value="">Alle Kategorien</option><option>BV</option><option>ARBZG</option><option>FPERSV</option><option>INTERNAL</option><option>WAGENKARTE</option><option>CUSTOM</option></select>
-				</label>
-				<label>Severity
-					<select data-check-explorer="severity"><option value="">Alle Severity-Stufen</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>VIOLATION</option></select>
-				</label>
 				<label>Status
-					<select data-check-explorer="status"><option value="">Alle Status</option><option>PASS</option><option>FAIL</option><option>SKIP</option><option>NOT_APPLICABLE</option></select>
+					<select data-check-explorer="status"><option value="">Alle Ergebnisse</option><option value="PASS">Bestanden</option><option value="FAIL">Prüfauffälligkeit</option><option value="SKIP">Übersprungen</option><option value="NOT_APPLICABLE">Nicht anwendbar</option></select>
 				</label>
 				<label>Dienstnummer
 					<input data-check-explorer="service-number" type="search" placeholder="z. B. 1103">
@@ -683,33 +698,37 @@
 				<label>Check-ID
 					<input data-check-explorer="check-id" type="search" placeholder="z. B. BV003">
 				</label>
-				<label>Freitextsuche
-					<input data-check-explorer="search" type="search" placeholder="Name oder Nachricht">
-				</label>
-				<label>Sortierung
-					<select data-check-explorer="sort-by"><option value="severity">Severity</option><option value="serviceNumber">Dienstnummer</option><option value="checkId">Check-ID</option><option value="category">Kategorie</option></select>
-				</label>
-				<label>Gruppierung
-					<select data-check-explorer="group-by"><option value="category">Kategorie</option><option value="service">Dienst</option></select>
-				</label>
 				<div class="check-explorer-actions"><button type="button" data-check-explorer="reset">Filter zurücksetzen</button></div>
 			</div>
-
-			<div class="check-explorer-statistics" aria-label="CheckReport Statistik">
-				<div class="check-explorer-stat"><strong data-check-stat="total">0</strong>Anzahl Checks</div>
-				<div class="check-explorer-stat pass"><strong data-check-stat="pass">0</strong>PASS</div>
-				<div class="check-explorer-stat warning"><strong data-check-stat="warning">0</strong>WARNING</div>
-				<div class="check-explorer-stat error"><strong data-check-stat="error">0</strong>ERROR</div>
-				<div class="check-explorer-stat violation"><strong data-check-stat="violation">0</strong>VIOLATION</div>
-			</div>
+			<details class="check-explorer-advanced">
+				<summary>Erweiterte Filter und Sortierung</summary>
+				<div class="check-explorer-controls">
+					<label>Regelbereich
+						<select data-check-explorer="category"><option value="">Alle Regelbereiche</option><option>BV</option><option>ARBZG</option><option>FPERSV</option><option>INTERNAL</option><option>WAGENKARTE</option><option>CUSTOM</option></select>
+					</label>
+					<label>Schwere
+						<select data-check-explorer="severity"><option value="">Alle Schweregrade</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>VIOLATION</option></select>
+					</label>
+					<label>Freitextsuche
+						<input data-check-explorer="search" type="search" placeholder="Regelname oder Begründung">
+					</label>
+					<label>Sortierung
+						<select data-check-explorer="sort-by"><option value="severity">Schwere</option><option value="serviceNumber">Dienstnummer</option><option value="checkId">Regel</option><option value="category">Regelbereich</option></select>
+					</label>
+					<label>Gruppierung
+						<select data-check-explorer="group-by"><option value="category">Regelbereich</option><option value="service">Dienst</option></select>
+					</label>
+				</div>
+			</details>
 
 			<div class="check-explorer-table-wrap">
 				<table class="check-explorer-table">
-					<thead><tr><th>Kategorie</th><th>Check-ID</th><th>Name</th><th>Status</th><th>Severity</th><th>Dienst</th><th>Nachricht</th></tr></thead>
+					<thead><tr><th>Regel</th><th>Ergebnis</th><th>Betroffene Dienste</th><th>Begründung</th></tr></thead>
 					<tbody data-check-explorer="rows"></tbody>
 				</table>
 				<p class="check-explorer-empty" data-check-explorer="empty" aria-live="polite">Noch kein CheckReport vorhanden.</p>
 			</div>
+			</details>
 		</section>
 	</div>
 

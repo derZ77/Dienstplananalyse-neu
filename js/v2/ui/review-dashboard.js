@@ -11,6 +11,8 @@ export function createReviewDashboardModel(checkReport, state = {}) {
   const services = buildServiceSummaries(checkReport?.results || [], normalizedState.canonicalSchedule);
   const visibleServices = sortServiceSummaries(filterServiceSummaries(services, normalizedState.filter));
   const expandedServiceNumbers = new Set(normalizedState.expandedServiceNumbers);
+  const baseStatistics = calculateServiceStatistics(services);
+  const evaluatedServices = normalizedState.canonicalSchedule?.services?.length ?? baseStatistics.totalServices;
 
   return {
     checkReportAvailable: checkReport?.type === 'CheckReport',
@@ -25,7 +27,11 @@ export function createReviewDashboardModel(checkReport, state = {}) {
         canonicalSchedule: normalizedState.canonicalSchedule
       })
     })),
-    statistics: calculateServiceStatistics(services),
+    statistics: {
+      ...baseStatistics,
+      evaluatedServices,
+      attentionServices: baseStatistics.criticalServices + baseStatistics.warningServices
+    },
     state: normalizedState
   };
 }
@@ -41,13 +47,24 @@ export function buildServiceSummaries(results, canonicalSchedule = null) {
       byService.get(serviceNumber).results.push(result);
     }
   }
+  // The dashboard is a plan overview. A schedule known to the session therefore supplies the
+  // complete evaluated duty set, including duties without a named CheckResult. This is a display
+  // projection only; no check status is inferred or changed.
+  for (const service of (Array.isArray(results) && results.length > 0
+    && canonicalSchedule?.type === 'CanonicalSchedule' && Array.isArray(canonicalSchedule.services))
+    ? canonicalSchedule.services : []) {
+    const serviceNumber = String(service.serviceNumber ?? '').trim();
+    if (serviceNumber && !byService.has(serviceNumber)) byService.set(serviceNumber, { serviceNumber, results: [] });
+  }
   return [...byService.values()].map(service => createServiceSummary(service, canonicalSchedule));
 }
 
 export function filterServiceSummaries(services, filter = 'all') {
   const selectedFilter = normalizeFilter(filter);
   return (Array.isArray(services) ? services : []).filter(service =>
-    selectedFilter === 'all' || service.reviewState === selectedFilter
+    selectedFilter === 'all'
+      || (selectedFilter === 'findings' && ['critical', 'warning'].includes(service.reviewState))
+      || service.reviewState === selectedFilter
   );
 }
 
@@ -60,10 +77,12 @@ export function sortServiceSummaries(services) {
 
 export function calculateServiceStatistics(services) {
   const entries = Array.isArray(services) ? services : [];
+  const criticalServices = entries.filter(service => service.reviewState === 'critical').length;
+  const warningServices = entries.filter(service => service.reviewState === 'warning').length;
   return {
     totalServices: entries.length,
-    criticalServices: entries.filter(service => service.reviewState === 'critical').length,
-    warningServices: entries.filter(service => service.reviewState === 'warning').length,
+    criticalServices,
+    warningServices,
     unremarkableServices: entries.filter(service => service.reviewState === 'unremarkable').length
   };
 }
@@ -134,7 +153,10 @@ function createServiceSummary({ serviceNumber, results }, canonicalSchedule) {
     passCount: rows.filter(row => row.status === 'PASS').length,
     warningCount: findings.filter(row => row.severity === 'WARNING').length,
     errorCount: findings.filter(row => row.severity === 'ERROR').length,
-    violationCount: findings.filter(row => row.severity === 'VIOLATION').length
+    violationCount: findings.filter(row => row.severity === 'VIOLATION').length,
+    findingRule: findings.map(row => row.id).filter(Boolean).join(', ') || '–',
+    findingDescription: findings.map(row => row.message || row.name).filter(Boolean).join(' · ') || 'Keine Regelauffälligkeit',
+    findingStatus: findings.length ? 'Prüfauffälligkeit' : 'Ohne Regelauffälligkeit'
   };
 }
 
@@ -147,7 +169,7 @@ function normalizeState(state) {
 }
 
 function normalizeFilter(filter) {
-  return ['critical', 'warning', 'unremarkable'].includes(filter) ? filter : 'all';
+  return ['critical', 'warning', 'unremarkable', 'findings'].includes(filter) ? filter : 'all';
 }
 
 function compareServiceNumber(left, right) {
@@ -177,23 +199,19 @@ function renderServices(body, empty, model, onToggle) {
   for (const service of model.services) {
     const row = document.createElement('tr');
     row.className = `review-service-row review-state-${service.reviewState}`;
-    const values = [service.serviceNumber, service.overallStatus, service.checkCount, service.passCount, service.warningCount, service.errorCount, service.violationCount, service.highestSeverity];
-    for (const value of values) {
+    const values = [
+      ['Dienst', service.serviceNumber],
+      ['Auffälligkeit', service.findingDescription],
+      ['Regel', service.findingRule],
+      ['Status', service.findingStatus]
+    ];
+    for (const [label, value] of values) {
       const cell = document.createElement('td');
       cell.textContent = String(value);
+      cell.dataset.label = label;
       row.append(cell);
     }
-    const action = document.createElement('td');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'review-dashboard-toggle';
-    button.textContent = service.expanded ? 'Details schließen' : 'Checks anzeigen';
-    button.setAttribute('aria-expanded', String(service.expanded));
-    button.addEventListener('click', () => onToggle(service.serviceNumber));
-    action.append(button);
-    row.append(action);
     body.append(row);
-    if (service.expanded) body.append(createDetailsRow(service));
   }
 }
 

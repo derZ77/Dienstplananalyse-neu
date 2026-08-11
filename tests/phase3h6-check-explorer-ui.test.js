@@ -51,6 +51,9 @@ test('no document detail, stop, path or personal data is introduced into the res
 });
 
 test('the explorer renders only the existing generic CheckResult fields', () => {
-  // the row builder uses exactly the existing seven generic columns
-  assert.match(explorer, /row\.category, row\.id, row\.name, row\.status, row\.severity, row\.serviceLabel, row\.message/);
+  // Phase 8.4B reduces the presentation to four user-facing columns. It still reads only the
+  // generic CheckResult projection: rule identity, frozen status, mapped duty numbers and message.
+  for (const field of ['row.id', 'row.name', 'row.status', 'row.serviceNumbers', 'row.message']) {
+    assert.ok(explorer.includes(field), `generic field remains present: ${field}`);
+  }
 });
