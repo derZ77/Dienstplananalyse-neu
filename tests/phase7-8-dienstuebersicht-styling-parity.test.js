@@ -38,6 +38,10 @@ test('Phase 7.8: title, header, service rows and print layout follow the referen
   assert.equal(sheet.A3.s.fill.fgColor.rgb, 'D9E1F2');
   assert.equal(sheet.A3.s.font.bold, true);
   assert.equal(sheet.E4.s.fill.fgColor.rgb, 'FFFFFF');
+  assert.equal(sheet['!rows'][0].hpt, 20);
+  assert.equal(sheet['!rows'][1].hpt, 24);
+  assert.equal(sheet['!rows'][2].hpt, 16);
+  assert.equal(sheet['!rows'][3].hpt, 15);
   assert.equal(sheet.E4.s.alignment.horizontal, 'left');
   assert.equal(sheet.F4.s.alignment.horizontal, 'center');
   assert.equal(sheet['!pageSetup'].paperSize, 9);
@@ -50,11 +54,18 @@ test('Phase 7.8: title, header, service rows and print layout follow the referen
   const styles = new TextDecoder().decode(new Uint8Array(XLSX.CFB.find(archive, '/xl/styles.xml').content));
   const worksheet = new TextDecoder().decode(new Uint8Array(XLSX.CFB.find(archive, '/xl/worksheets/sheet1.xml').content));
   const workbookXml = new TextDecoder().decode(new Uint8Array(XLSX.CFB.find(archive, '/xl/workbook.xml').content));
-  assert.match(styles, /FF1F4E78/, 'header fill survives the produced XLSX');
-  assert.match(styles, /FFD9E1F2/, 'service-row fill survives the produced XLSX');
+  assert.match(styles, /001F4E78/, 'header fill survives the produced XLSX');
+  assert.match(styles, /00D9E1F2/, 'service-row fill survives the produced XLSX');
+  assert.match(styles, /00FFF2CC/, 'pause fill survives the produced XLSX');
+  const pauseIndex = model.rows.findIndex(row => /^pause(?:\s|\(|$)/i.test(row[4]));
+  assert.ok(pauseIndex >= 0, 'the JES reference contains a pause row');
+  const pauseRow = pauseIndex + 3;
+  assert.equal(sheet[`E${pauseRow}`].s.fill.fgColor.rgb, 'FFF2CC', 'pause activity uses the reference yellow');
+  assert.match(worksheet, new RegExp(`<c r="E${pauseRow}"[^>]* s="8"`), 'pause activity uses the left-aligned pause style');
   assert.match(worksheet, /<c r="A2"[^>]* s="2"/, 'header cells reference the header style');
   assert.match(worksheet, /<c r="A3"[^>]* s="5"/, 'service cells reference the service style');
   assert.match(worksheet, /<pageSetup[^>]*paperSize="9"[^>]*orientation="landscape"/, 'A4 landscape survives the produced XLSX');
+  assert.ok(worksheet.indexOf('<pageSetup') < worksheet.indexOf('<ignoredErrors'), 'page settings precede ignored errors in schema order');
   assert.match(workbookXml, /_xlnm\.Print_Area/, 'print area survives the produced XLSX');
   assert.match(workbookXml, /_xlnm\.Print_Titles/, 'repeated header survives the produced XLSX');
 });
@@ -69,4 +80,14 @@ test('Phase 7.8: JES Excel, JES PDF and JNV PDF receive the same renderer stylin
     assert.equal(sheet.A3.s.fill.fgColor.rgb, 'D9E1F2');
     assert.equal(sheet['!pageSetup'].orientation, 'landscape');
   }
+});
+
+test('Phase 7.8: paid and unpaid pause activities receive the reference yellow band', () => {
+  const model = buildDienstuebersichtExportModel({
+    type: 'CanonicalSchedule',
+    services: [{ serviceNumber: 'P-1', activities: [{ rawActivity: 'Dienst' }, { rawActivity: 'Pause (bezahlt)' }] }]
+  });
+  const sheet = createDienstuebersichtWorkbook(model, { xlsx: XLSX }).Sheets.Dienstübersicht;
+  assert.equal(sheet.E4.v, 'Pause (bezahlt)');
+  assert.equal(sheet.E4.s.fill.fgColor.rgb, 'FFF2CC');
 });

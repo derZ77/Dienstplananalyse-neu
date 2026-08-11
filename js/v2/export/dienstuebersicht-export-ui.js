@@ -9,10 +9,19 @@ const scheduleOf = state => {
     : primary?.importResult?.data?.type === 'CanonicalSchedule' ? primary.importResult.data : null;
 };
 
+// The primary import already holds the detector's document title. Passing it to the
+// export model keeps it source-specific without adding or changing any parser data.
+const titleOf = (state, schedule) => state?.primaryImport?.detection?.title
+  || state?.primaryImport?.importResult?.detection?.title
+  || schedule?.metadata?.title
+  || schedule?.document?.source?.title
+  || schedule?.document?.title
+  || null;
+
 export function resolveDienstuebersichtExportState(sessionState) {
   const schedule = scheduleOf(sessionState);
   if (!schedule) return { visible: false, enabled: false, label: DIENSTUEBERSICHT_EXPORT_BUTTON_LABEL, model: null };
-  const model = buildDienstuebersichtExportModel(schedule);
+  const model = buildDienstuebersichtExportModel(schedule, { title: titleOf(sessionState, schedule) });
   return { visible: true, enabled: true, label: DIENSTUEBERSICHT_EXPORT_BUTTON_LABEL, model };
 }
 

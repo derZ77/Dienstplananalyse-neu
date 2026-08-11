@@ -9,9 +9,10 @@ const text = value => String(value ?? '').trim();
 const clock = value => text(value?.value);
 const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const fileDate = now => [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-const REF_COLORS = Object.freeze({ header: '1F4E78', service: 'D9E1F2', body: 'FFFFFF' });
+const REF_COLORS = Object.freeze({ header: '1F4E78', service: 'D9E1F2', body: 'FFFFFF', pause: 'FFF2CC' });
 const THIN_BORDER = Object.freeze({ top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } });
 const TEXT_COLUMNS = new Set([2, 3, 4, 6, 8]);
+const ROW_HEIGHTS = Object.freeze({ title: 20, header: 24, service: 16, activity: 15, spacer: 6 });
 // This is an OpenXML schema identifier embedded in the XLSX, not a network endpoint.
 const OOXML_SPREADSHEET_NS = ['http:', '', 'schemas.openxmlformats.org', 'spreadsheetml/2006/main'].join('/');
 
@@ -21,6 +22,10 @@ const rowStyle = (fill, column) => ({
   border: THIN_BORDER,
   alignment: { horizontal: TEXT_COLUMNS.has(column) ? 'left' : 'center', vertical: 'center', wrapText: TEXT_COLUMNS.has(column) }
 });
+
+// Presentation-only classification matching the original Dienstübersicht: both
+// "Pause" and "Pause (bezahlt)" receive the reference's yellow activity band.
+const isPauseRow = row => /^pause(?:\s|\(|$)/i.test(text(row?.[4]));
 
 function applyReferenceLayout(ws, model, xlsx) {
   ws.A1.s = { font: { name: 'Calibri', sz: 14, bold: true }, alignment: { horizontal: 'left', vertical: 'center' } };
@@ -36,25 +41,28 @@ function applyReferenceLayout(ws, model, xlsx) {
 
   model.rows.forEach((row, index) => {
     const worksheetRow = index + 2;
-    if (!row.some(Boolean)) { ws['!rows'][worksheetRow] = { hpt: 6 }; return; }
-    const fill = row[0] ? REF_COLORS.service : REF_COLORS.body;
+    if (!row.some(Boolean)) { ws['!rows'][worksheetRow] = { hpt: ROW_HEIGHTS.spacer }; return; }
+    const fill = row[0] ? REF_COLORS.service : isPauseRow(row) ? REF_COLORS.pause : REF_COLORS.body;
     for (let column = 0; column < DIENSTUEBERSICHT_COLUMNS.length; column += 1) {
       const address = xlsx.utils.encode_cell({ r: worksheetRow, c: column });
       ws[address] ??= { t: 's', v: '' };
       ws[address].s = rowStyle(fill, column);
     }
-    ws['!rows'][worksheetRow] = { hpt: row[0] ? 18 : 15 };
+    ws['!rows'][worksheetRow] = { hpt: row[0] ? ROW_HEIGHTS.service : ROW_HEIGHTS.activity };
   });
 }
 
+// This minimal style table deliberately follows the element and attribute conventions of
+// the supplied Excel reference. SheetJS' browser writer retains cell values but omits the
+// corresponding style table, so only this proven presentation contract is inserted.
 const REFERENCE_STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="${OOXML_SPREADSHEET_NS}"><numFmts count="0"/>
-<fonts count="5"><font><name val="Calibri"/><family val="2"/><sz val="11"/></font><font><b/><sz val="14"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="10"/></font><font><name val="Calibri"/><family val="2"/><sz val="10"/></font><font><b/><name val="Calibri"/><family val="2"/><sz val="10"/></font></fonts>
-<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/><bgColor indexed="64"/></patternFill></fill></fills>
-<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders>
+<fonts count="5"><font><name val="Calibri"/><family val="2"/><color theme="1"/><sz val="11"/><scheme val="minor"/></font><font><b val="1"/><sz val="14"/></font><font><b val="1"/><color rgb="00FFFFFF"/><sz val="10"/></font><font><sz val="10"/></font><font><b val="1"/><sz val="10"/></font></fonts>
+<fills count="6"><fill><patternFill/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="001F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="00FFFFFF"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="00D9E1F2"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="00FFF2CC"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1" xfId="0"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyAlignment="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyAlignment="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyAlignment="1" xfId="0"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" applyAlignment="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" applyAlignment="1" xfId="0"><alignment horizontal="left" vertical="center" wrapText="1"/></xf></cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><tableStyles count="0" defaultTableStyle="TableStyleMedium9" defaultPivotStyle="PivotStyleLight16"/></styleSheet>`;
+<cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" pivotButton="0" quotePrefix="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="5" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="5" borderId="1" applyAlignment="1" pivotButton="0" quotePrefix="0" xfId="0"><alignment horizontal="left" vertical="center" wrapText="1"/></xf></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0" hidden="0"/></cellStyles><tableStyles count="0" defaultTableStyle="TableStyleMedium9" defaultPivotStyle="PivotStyleLight16"/></styleSheet>`;
 
 const columnIndex = letter => letter.charCodeAt(0) - 65;
 const xmlText = entry => new TextDecoder().decode(new Uint8Array(entry.content));
@@ -67,16 +75,24 @@ function replaceZipEntry(archive, xlsx, path, value) {
 }
 
 function styleWorksheetXml(xml, model) {
-  const dataStyle = (row, column) => (row[0]
-    ? (TEXT_COLUMNS.has(column) ? 6 : 5)
-    : (TEXT_COLUMNS.has(column) ? 4 : 3));
+  const dataStyle = (row, column) => {
+    if (row[0]) return TEXT_COLUMNS.has(column) ? 6 : 5;
+    if (isPauseRow(row)) return TEXT_COLUMNS.has(column) ? 8 : 7;
+    return TEXT_COLUMNS.has(column) ? 4 : 3;
+  };
   const styledCells = xml.replace(/<c r="([A-L])(\d+)"([^>]*)/g, (match, letter, rowNumber, attributes) => {
     const row = Number(rowNumber);
     const style = row === 1 ? 1 : row === 2 ? 2 : dataStyle(model.rows[row - 3] ?? [], columnIndex(letter));
     return `<c r="${letter}${rowNumber}"${attributes.replace(/\s+s="\d+"/, '')} s="${style}"`;
   });
   const pageSettings = `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>`;
-  return styledCells.replace(/<pageMargins[^>]*\/>|<pageSetup[^>]*\/>/g, '').replace('</worksheet>', `${pageSettings}</worksheet>`);
+  // SheetJS emits ignoredErrors after sheetData. OpenXML requires page settings before
+  // that section; appending them at the end produces a well-formed, but schema-invalid,
+  // worksheet that Microsoft Excel repairs on open.
+  const withoutExistingPageSettings = styledCells.replace(/<pageMargins[^>]*\/>|<pageSetup[^>]*\/>/g, '');
+  return withoutExistingPageSettings.includes('<ignoredErrors')
+    ? withoutExistingPageSettings.replace('<ignoredErrors', `${pageSettings}<ignoredErrors`)
+    : withoutExistingPageSettings.replace('</worksheet>', `${pageSettings}</worksheet>`);
 }
 
 function addPrintDefinitions(xml, lastRow) {
@@ -107,7 +123,15 @@ function applyOpenXmlReferenceLayout(bytes, model, xlsx) {
   }
 }
 
-export function buildDienstuebersichtExportModel(schedule, { title = 'Dienstübersicht' } = {}) {
+export function resolveDienstuebersichtTitle(schedule, { title = null } = {}) {
+  const knownTitle = text(title)
+    || text(schedule?.metadata?.title)
+    || text(schedule?.document?.source?.title)
+    || text(schedule?.document?.title);
+  return knownTitle || 'Dienstübersicht';
+}
+
+export function buildDienstuebersichtExportModel(schedule, { title = null } = {}) {
   if (schedule?.type !== 'CanonicalSchedule') throw new TypeError('Expected a CanonicalSchedule.');
   const rows = [];
   for (const service of schedule.services || []) {
@@ -116,7 +140,7 @@ export function buildDienstuebersichtExportModel(schedule, { title = 'Dienstübe
     activities.forEach((activity, index) => rows.push(serviceRow(service, activity, index === 0)));
     rows.push(Array(DIENSTUEBERSICHT_COLUMNS.length).fill(''));
   }
-  return { type: 'DienstübersichtExportModel', sheetName: 'Dienstübersicht', title, columns: [...DIENSTUEBERSICHT_COLUMNS], rows };
+  return { type: 'DienstübersichtExportModel', sheetName: 'Dienstübersicht', title: resolveDienstuebersichtTitle(schedule, { title }), columns: [...DIENSTUEBERSICHT_COLUMNS], rows };
 }
 
 function serviceRow(service, activity, isFirst = true) {
@@ -131,8 +155,8 @@ export function createDienstuebersichtWorkbook(model, { xlsx = globalThis.XLSX }
   if (!xlsx?.utils || model?.type !== 'DienstübersichtExportModel') return null;
   const ws = xlsx.utils.aoa_to_sheet([[model.title, ...Array(11).fill('')], model.columns, ...model.rows]);
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }];
-  ws['!cols'] = [8, 9, 9, 10, 16, 8, 28, 8, 28, 8, 8, 9].map(wch => ({ wch }));
-  ws['!rows'] = [{ hpt: 19 }, { hpt: 30 }];
+  ws['!cols'] = [8, 9, 9, 10, 23, 8, 28, 8, 28, 8, 8, 9].map(wch => ({ wch }));
+  ws['!rows'] = [{ hpt: ROW_HEIGHTS.title }, { hpt: ROW_HEIGHTS.header }];
   applyReferenceLayout(ws, model, xlsx);
   ws['!pageSetup'] = { orientation: 'landscape', paperSize: 9, fitToWidth: 1, fitToHeight: 0 };
   ws['!pageMargins'] = { left: 0.75, right: 0.75, top: 1, bottom: 1, header: 0.5, footer: 0.5 };
