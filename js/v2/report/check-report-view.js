@@ -124,10 +124,10 @@ function renderDetails(row) {
 }
 
 function renderResult(row) {
-  return `<article class="report-result" data-result-id="${escape(row.id)}" data-status="${escape(row.status)}">
+  return `<article class="report-result ${statusClass(row.status)}" data-result-id="${escape(row.id)}" data-status="${escape(row.status)}">
       <details>
         <summary>
-          <span class="report-status" data-status="${escape(row.status)}">
+          <span class="report-status ${statusClass(row.status)}" data-status="${escape(row.status)}">
             <span class="report-status-symbol" aria-hidden="true">${escape(row.statusSymbol)}</span>
             <span class="report-status-label">${escape(row.statusLabel)}</span>
           </span>
@@ -142,6 +142,13 @@ function renderResult(row) {
         </div>
       </details>
     </article>`;
+}
+
+function statusClass(status) {
+  if (status === 'FAIL') return 'status-fail';
+  if (status === 'PASS') return 'status-pass';
+  if (status === 'SKIP' || status === 'NOT_APPLICABLE') return 'status-neutral';
+  return 'status-info';
 }
 
 /**

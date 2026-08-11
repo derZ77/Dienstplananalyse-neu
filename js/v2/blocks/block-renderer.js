@@ -24,10 +24,39 @@ export function renderOriginalBlocks(blocks, { document = globalThis.document } 
     if (!target) continue;
     const htmlField = HTML_TARGETS[id];
     if (htmlField && blocks[htmlField]) target.innerHTML = String(blocks[htmlField]);
+    // Lightweight test/document facades retain the legacy textContent contract.
+    else if (typeof target.innerHTML === 'string') target.innerHTML = renderExistingStatusText(blocks[field]);
     else target.textContent = String(blocks[field] ?? '');
   }
   const plan = document.getElementById('current-plan-display');
   if (plan) plan.textContent = `Aktueller Plan: ${blocks.planHinweis || ''}`;
+}
+
+/**
+ * Presentation only: the migrated blocks already carry their assessed wording.
+ * We escape every character first and only group existing paragraphs by that wording;
+ * no threshold, status or business rule is calculated here.
+ */
+export function renderExistingStatusText(value) {
+  const safe = escapeHtml(String(value ?? ''));
+  return safe.split(/\n{2,}/).map(paragraph => {
+    const statusClass = blockStatusClass(paragraph);
+    return `<div class="result-status ${statusClass}">${paragraph.replace(/\n/g, '<br>')}</div>`;
+  }).join('');
+}
+
+function blockStatusClass(text) {
+  if (/BV-Verstoß|nicht zulässig|nicht BV-konform/i.test(text)) return 'status-fail';
+  if (/Prüfung erforderlich|nicht abschließend/i.test(text)) return 'status-warning';
+  if (/BV eingehalten|zulässiger 1\/6-Dienst|BV-konform/i.test(text)) return 'status-pass';
+  if (/Nicht anwendbar|keine .*Bewertung|übersprungen/i.test(text)) return 'status-neutral';
+  return 'status-info';
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
 }
 
 export function clearOriginalBlocks({ document = globalThis.document } = {}) {

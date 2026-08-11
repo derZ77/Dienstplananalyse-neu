@@ -263,7 +263,7 @@ function renderRows(root, model) {
 
 function createRow(row) {
   const element = document.createElement('tr');
-  element.className = `check-explorer-row check-tone-${getTone(row)}`;
+  element.className = `check-explorer-row check-tone-${getTone(row)} ${statusClass(row.status)}`;
   const rule = document.createElement('td');
   rule.textContent = [row.id, row.name].filter(Boolean).join(' — ') || '–';
 
@@ -280,6 +280,13 @@ function createRow(row) {
 
   element.append(rule, status, services, message);
   return element;
+}
+
+function statusClass(status) {
+  if (status === 'FAIL') return 'status-fail';
+  if (status === 'PASS') return 'status-pass';
+  if (status === 'SKIP' || status === 'NOT_APPLICABLE') return 'status-neutral';
+  return 'status-info';
 }
 
 function statusLabel(status) {
@@ -314,7 +321,9 @@ function createRelevantValuesDetails(details) {
 }
 
 function getTone(row) {
+  if (row.status === 'FAIL') return 'fail';
   if (row.status === 'PASS') return 'pass';
+  if (row.status === 'SKIP' || row.status === 'NOT_APPLICABLE') return 'neutral';
   if (row.severity === 'VIOLATION') return 'violation';
   if (row.severity === 'ERROR') return 'error';
   if (row.severity === 'WARNING') return 'warning';

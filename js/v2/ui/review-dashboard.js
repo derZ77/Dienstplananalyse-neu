@@ -198,7 +198,7 @@ function renderServices(body, empty, model, onToggle) {
       : 'Keine Dienste entsprechen dem gewählten Filter.';
   for (const service of model.services) {
     const row = document.createElement('tr');
-    row.className = `review-service-row review-state-${service.reviewState}`;
+    row.className = `review-service-row review-state-${service.reviewState} ${service.findingStatus === 'Prüfauffälligkeit' ? 'status-fail' : 'status-neutral'}`;
     const values = [
       ['Dienst', service.serviceNumber],
       ['Auffälligkeit', service.findingDescription],

@@ -388,7 +388,16 @@
 			font-weight: 600;
 		}
 
+		/* Status-Farbvertrag: Farbe unterstützt den sichtbaren Status-Text, ersetzt ihn nie. */
+		.result-status { margin: .35rem 0; padding: .45rem .6rem; border-left: 4px solid #90a4ae; border-radius: 4px; }
+		.status-fail { background: #fff0ed; border-left: 4px solid #b73524; }
+		.status-fail, .status-fail .report-status-label { color: #7d2117; }
+		.status-warning { background: #fff8dd; border-left: 4px solid #d98b00; color: #704b00; }
+		.status-pass { background: #edf8ef; border-left: 4px solid #2e7d32; color: #1d5c2f; }
+		.status-neutral { background: #f3f6f7; border-left: 4px solid #90a4ae; color: #455a64; }
+		.status-info { background: #f5faff; border-left: 4px solid #90a4ae; }
 		.check-tone-pass { background: #edf7ed; }
+		.check-tone-fail { background: #fff0ed; }
 		.check-tone-warning { background: #fff8dd; }
 		.check-tone-error { background: #fff0df; }
 		.check-tone-violation { background: #ffebee; }
@@ -455,8 +464,11 @@
 		.review-service-row.review-state-warning { background: #fff8dd; }
 		.review-service-row.review-state-unremarkable { background: #edf7ed; }
 		.review-dashboard-empty { margin: 0; padding: 0.8rem; color: #546e7a; }
-		.review-service-row.review-state-critical td:nth-child(4),
-		.review-service-row.review-state-warning td:nth-child(4) { font-weight: 700; color: #8a1f11; }
+		.review-service-row.status-fail { background: #fff0ed; border-left: 4px solid #b73524; }
+		.review-service-row.status-fail td:nth-child(4) { font-weight: 700; color: #7d2117; }
+		.check-explorer-row.status-fail { background: #fff0ed; border-left: 4px solid #b73524; }
+		.check-explorer-row.status-pass { background: #edf8ef; border-left: 4px solid #2e7d32; }
+		.check-explorer-row.status-neutral { background: #f3f6f7; border-left: 4px solid #90a4ae; }
 		.check-explorer-details { margin-top: .8rem; border: 1px solid #d7e1e6; border-radius: 8px; padding: .25rem .75rem .75rem; }
 		.check-explorer-details > summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
 		.check-explorer-advanced { margin: .5rem 0; border: 0; padding: 0; }
