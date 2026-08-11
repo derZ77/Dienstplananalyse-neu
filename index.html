@@ -3109,8 +3109,19 @@
 	<!-- Phase 1: KI-Hilfsfunktionen (Backend-URL, Prompt-Builder) entfernt. -->
 	<!-- Phase 1: KI-Chat-Widget-Logik entfernt. -->
 	<!-- Phase 1: KI-gestützte Auswertung entfernt. -->
-	<script type="module" src="js/v2/pdf-import-bootstrap.js"></script>
-	<script type="module" src="js/v2/check-explorer-bootstrap.js"></script>
+	<!-- Phase 8.9: version the entry points and recently changed UI modules so a Pages edge cache
+	     cannot combine a new index.html with an older analysis renderer. -->
+	<script type="importmap">
+		{
+			"imports": {
+				"/Dienstplananalyse-neu/js/v2/ui/review-dashboard.js": "/Dienstplananalyse-neu/js/v2/ui/review-dashboard.js?v=phase8.9",
+				"/Dienstplananalyse-neu/js/v2/blocks/block-renderer.js": "/Dienstplananalyse-neu/js/v2/blocks/block-renderer.js?v=phase8.9",
+				"/Dienstplananalyse-neu/js/v2/blocks/block-orchestrator.js": "/Dienstplananalyse-neu/js/v2/blocks/block-orchestrator.js?v=phase8.9"
+			}
+		}
+	</script>
+	<script type="module" src="js/v2/pdf-import-bootstrap.js?v=phase8.9"></script>
+	<script type="module" src="js/v2/check-explorer-bootstrap.js?v=phase8.9"></script>
 </body>
 
 </html>
