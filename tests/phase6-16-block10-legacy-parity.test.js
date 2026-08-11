@@ -11,13 +11,13 @@ const rows = [
   ['', '12/2', 'Dienst', '07:50', 'HLZ', '11:20', 'BBU', '', '', '']
 ];
 
-test('Phase 6.16: Block 10 stellt eine tabellarische Pause mit beiden Orten und Kursen ohne BV-Bewertung dar', () => {
+test('Phase 6.16: Block 10 erhält die tabellarische Legacy-Pause mit beiden Orten und Kursen', () => {
   const schedule = attachExcelBreakData(adaptExcelRowsToCanonicalSchedule(rows));
   const output = createOriginalBlockViewModel(schedule).pauseHtml;
   const legacyOutput = output.split('\n\nBV-Pausenlagenprüfung:')[0];
 
   assert.equal(legacyOutput, [
-    'Pausen zwischen 30 und 120 Minuten:',
+    'Pausen zwischen 30 und 120 Minuten: 1',
     '',
     'ID 2211:',
     '  Pause: 07:15 HLZ 12/1 → 07:50 HLZ 12/2 | 35 min'

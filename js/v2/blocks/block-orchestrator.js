@@ -34,7 +34,7 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
   const analysis = analyzeCanonicalScheduleWithMigratedLegacyChecks(canonicalSchedule);
   const legacy = analysis.legacyAnalyses;
   const planHinweis = legacy.plan.label;
-  const pauses = collectInterruptions(canonicalSchedule);
+  const pauses = collectBlock10Events(canonicalSchedule);
   // A Dienstnummer is the legacy-facing identity of this block. The canonical import may
   // contain the same duty in more than one source row, but it is still one shared duty.
   const sharedServices = uniqueSharedServices(legacy.sharedServices);
@@ -354,16 +354,73 @@ function renderRoutes(routes) {
   return output.trim();
 }
 
-function collectInterruptions(schedule) {
+function collectBlock10Events(schedule) {
   const explicit = Array.isArray(schedule?.interruptions) ? schedule.interruptions : [];
   const perService = (schedule?.services || []).flatMap(service => service?.interruptions || []);
-  const seen = new Set();
-  return [...explicit, ...perService].filter(interruption => {
-    const key = interruption.id || `${interruption.serviceId || interruption.serviceNumber}|${clock(interruption.start)}|${clock(interruption.end)}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const pauses = (schedule?.services || []).flatMap(service => (service?.activities || [])
+    .filter(isDeclaredPauseActivity)
+    .map(activity => pauseEventFromActivity(service, activity))
+    .filter(Boolean));
+  return uniquePauseEvents([...explicit, ...perService, ...pauses]);
+}
+
+function isDeclaredPauseActivity(activity) {
+  return /^\s*pause(?:\s|\(|$)/i.test(text(activity?.rawActivity));
+}
+
+function pauseEventFromActivity(service, activity) {
+  const duration = durationMinutes(activity?.departureTime, activity?.arrivalTime);
+  if (!Number.isInteger(duration)) return null;
+  return {
+    id: `activity-pause:${activity.id || `${service?.id || ''}:${clock(activity.departureTime)}:${clock(activity.arrivalTime)}`}`,
+    type: 'activityPause',
+    kind: 'pause',
+    serviceId: service?.id ?? activity?.serviceId ?? null,
+    serviceNumber: text(service?.serviceNumber) || text(activity?.serviceNumber),
+    start: activity.departureTime,
+    end: activity.arrivalTime,
+    durationMinutes: duration,
+    startLocation: text(activity?.departureLocation),
+    endLocation: text(activity?.arrivalLocation),
+    location: { start: text(activity?.departureLocation), end: text(activity?.arrivalLocation) },
+    circuitNumber: text(activity?.circuitNumber),
+    source: activity?.source ?? null,
+    sourceKind: 'declaredPauseActivity',
+    activityId: activity?.id ?? null
+  };
+}
+
+function uniquePauseEvents(events) {
+  const byTime = new Map();
+  for (const event of events) {
+    const key = `${event?.serviceId || event?.serviceNumber || ''}|${clock(event?.start)}|${clock(event?.end)}|${event?.durationMinutes ?? ''}`;
+    const existing = byTime.get(key);
+    // An already canonical event takes precedence, while an activity pause fills
+    // its missing display fields. Thus the same pause is never shown twice.
+    if (!existing) {
+      byTime.set(key, event);
+      continue;
+    }
+    byTime.set(key, mergePauseEvents(existing, event));
+  }
+  return [...byTime.values()];
+}
+
+function mergePauseEvents(existing, candidate) {
+  const canonical = existing.type === 'activityPause' && candidate.type !== 'activityPause' ? candidate : existing;
+  const activity = existing.type === 'activityPause' ? existing : candidate.type === 'activityPause' ? candidate : null;
+  if (!activity) return canonical;
+  return {
+    ...canonical,
+    startLocation: text(canonical.startLocation) || text(activity.startLocation),
+    endLocation: text(canonical.endLocation) || text(activity.endLocation),
+    location: {
+      start: text(canonical.location?.start) || text(activity.location?.start),
+      end: text(canonical.location?.end) || text(activity.location?.end)
+    },
+    sourceKind: canonical.sourceKind || activity.sourceKind,
+    activityId: canonical.activityId || activity.activityId
+  };
 }
 
 function renderInterruptions(interruptions, schedule) {
@@ -374,7 +431,7 @@ function renderInterruptions(interruptions, schedule) {
     interruption.durationMinutes >= MIN_NORMAL_PAUSE_MINUTES &&
     interruption.durationMinutes <= MAX_NORMAL_PAUSE_MINUTES);
   const additional = orderedInterruptions.filter(interruption => !legacyPauses.includes(interruption));
-  const sections = ['Pausen zwischen 30 und 120 Minuten:', ''];
+  const sections = [`Pausen zwischen 30 und 120 Minuten${legacyPauses.length ? `: ${legacyPauses.length}` : ':'}`, ''];
 
   sections.push(legacyPauses.length
     ? renderLegacyPauseEntries(legacyPauses, schedule)
@@ -446,8 +503,14 @@ function renderLegacyPauseEntries(interruptions, schedule) {
       const service = serviceForInterruption(services, interruption);
       const before = linkedActivity(service, interruption, 'before');
       const after = linkedActivity(service, interruption, 'after');
-      return `  Pause: ${clock(interruption.start)} ${text(before?.arrivalLocation) || text(interruption.startLocation)}${courseText(before)} → ` +
-        `${clock(interruption.end)} ${text(after?.departureLocation) || text(interruption.endLocation)}${courseText(after)} | ${interruption.durationMinutes} min`;
+      const declared = interruption.sourceKind === 'declaredPauseActivity';
+      const startLocation = declared ? text(interruption.startLocation) : text(before?.arrivalLocation) || text(interruption.startLocation);
+      const endLocation = declared ? text(interruption.endLocation) : text(after?.departureLocation) || text(interruption.endLocation);
+      const startCourse = declared ? courseText(interruption) : courseText(before) || courseText(interruption);
+      const endCourse = declared ? courseText(interruption) : courseText(after) || courseText(interruption);
+      return `  Pause: ${clock(interruption.start)} ${startLocation}${startCourse} → ` +
+        `${clock(interruption.end)} ${endLocation}${endCourse} | ${interruption.durationMinutes} min` +
+        `${interruption.sourceKind === 'declaredPauseActivity' ? ' | deklarierte Pause im Dienst' : ''}`;
     })
   ].join('\n')).join('\n\n');
 }

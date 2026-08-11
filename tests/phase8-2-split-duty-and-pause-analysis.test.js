@@ -79,7 +79,7 @@ test('Phase 8.2: JES Excel/PDF keep the same Block-2 result and JNV PDF has uniq
   assert.ok(ids.length > 0, 'JNV reference contains shared duties');
 });
 
-test('Phase 8.2: JNV long interruptions remain visible but are not promoted to regular Block-10 pauses', async () => {
+test('Phase 8.2: JNV long interruptions remain visible beside the declared regular Block-10 pauses', async () => {
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');
   const schedule = (await analyzePdfImport(await fileOf(FIXTURES.jnvSchedulePdf))).canonicalSchedule;
@@ -87,7 +87,8 @@ test('Phase 8.2: JNV long interruptions remain visible but are not promoted to r
 
   assert.match(output, /Weitere Unterbrechungen \(keine regulären Blockpausen\):/);
   assert.match(output, /Lange Unterbrechung \(geteilter Dienst; keine reguläre Blockpause\)/);
-  assert.doesNotMatch(output, /BV-Pausenlagenprüfung:/);
+  assert.match(output, /Pausen zwischen 30 und 120 Minuten: 45/);
+  assert.match(output, /BV-Pausenlagenprüfung:/);
 });
 
 test('Phase 8.2: only pauses from 30 through 120 minutes enter the regular Block-10 pause section', () => {

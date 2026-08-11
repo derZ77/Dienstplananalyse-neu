@@ -67,11 +67,12 @@ test('Phase 6.4: echtes JNV-PDF zeigt jeden strukturierten Unterbrechungseintrag
   });
 });
 
-test('Phase 6.4: echtes JES-PDF verliert keine Unterbrechungen und behält den Block-10-Leerstatus', async () => {
+test('Phase 6.4: echtes JES-PDF behält den leeren Canonical-Unterbrechungstopf und liefert deklarierte Pausen', async () => {
   const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');
   const result = await analyzePdfImport(await fileLike(FIXTURES.jesSchedulePdf));
   const output = createOriginalBlockViewModel(result.canonicalSchedule).pauseHtml;
 
   assert.equal(result.canonicalSchedule.interruptions.length, 0);
-  assert.equal(output, 'Pausen zwischen 30 und 120 Minuten:\n\nKeine Pausen im Bereich 30–120 Minuten gefunden.');
+  assert.match(output, /Pausen zwischen 30 und 120 Minuten: 12/);
+  assert.match(output, /ID 752:[\s\S]*Pause: 09:34 Busbahnhof 7521 → 10:19 Busbahnhof 7521 \| 45 min/);
 });
