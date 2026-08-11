@@ -45,7 +45,8 @@ function renderHeader(header) {
     ['Regelergebnisse', header.resultCount],
     ['Prüfauffälligkeiten', header.findingCount],
     ['Warnungen', header.warningCount],
-    ['Übersprungen / nicht anwendbar', header.skippedCount],
+    ['Übersprungen', header.skippedCount],
+    ['Nicht anwendbar', header.notApplicableCount],
     ['Technische Fehler', header.errorCount]
   ];
   return `<header class="report-header">

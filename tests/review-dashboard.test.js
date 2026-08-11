@@ -58,6 +58,31 @@ test('Review Dashboard liefert Statistik und einen aufklappbaren dienstbezogenen
   assert.deepEqual(toggleExpandedService(expanded, '1103'), []);
 });
 
+test('Review Dashboard counts only actual FAIL results as warned and resolves canonical service ids', () => {
+  const canonicalSchedule = {
+    type: 'CanonicalSchedule',
+    services: [
+      { id: 'service-internal-1', serviceNumber: '1103' },
+      { id: 'service-internal-2', serviceNumber: '1104' },
+      { id: 'service-internal-3', serviceNumber: '1105' }
+    ]
+  };
+  const services = buildServiceSummaries([
+    result('BV003', 'WARNING', 'FAIL', ['service-internal-1']),
+    result('BV010', 'ERROR', 'SKIP', ['service-internal-1']),
+    result('BV014', 'VIOLATION', 'NOT_APPLICABLE', ['service-internal-2']),
+    result('BV005', 'WARNING', 'PASS', ['service-internal-3']),
+    result('BVX', 'INFO', 'FAIL', ['service-internal-3'])
+  ], canonicalSchedule);
+
+  assert.deepEqual(services.map(service => service.serviceNumber), ['1103', '1104', '1105']);
+  assert.deepEqual(calculateServiceStatistics(services), {
+    totalServices: 3, criticalServices: 0, warningServices: 2, unremarkableServices: 1
+  });
+  assert.equal(services.find(service => service.serviceNumber === '1103').errorCount, 0,
+    'a skipped technical result is not a service warning');
+});
+
 function result(id, severity, status, affectedServices) {
   return {
     id,

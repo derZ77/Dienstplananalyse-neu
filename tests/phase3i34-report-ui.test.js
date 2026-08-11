@@ -149,7 +149,8 @@ test('E: the status is readable as TEXT, not only as a colour', () => {
   const out = html();
   assert.ok(out.includes('Prüfauffälligkeit'), 'FAIL is worded');
   assert.ok(out.includes('Bestanden'), 'PASS is worded');
-  assert.ok(out.includes('Übersprungen') || out.includes('Nicht anwendbar'));
+  assert.ok(out.includes('Übersprungen'));
+  assert.ok(out.includes('Nicht anwendbar'));
   assert.doesNotMatch(out, /class="[^"]*"\s*>\s*<\/span>/, 'no colour-only status marker');
 });
 

@@ -46,7 +46,12 @@ export function deriveReportContext(state) {
     metadata: {
       organization: text(state?.ruleAnalysis?.ruleSet?.organization) || text(profile?.organization) || null,
       documentType: canonicalSchedule ? (text(primary?.documentType) || text(profile?.documentType) || null) : null,
-      dayType: text(state?.matching?.validity?.scheduleDayType) || null,
+      // The matcher exposes the resolved day type as `dayType`; older callers used
+      // `scheduleDayType`. Both are already present session fields, so this is a direct
+      // hand-over rather than a title/file-name inference.
+      dayType: text(state?.matching?.validity?.dayType)
+        || text(state?.matching?.validity?.scheduleDayType)
+        || null,
       serviceCount: canonicalSchedule && Array.isArray(canonicalSchedule.services)
         ? canonicalSchedule.services.length
         : null
@@ -295,7 +300,8 @@ export function buildCheckReportViewModel(checkReport, options = {}) {
       resultCount: results.length,
       findingCount: summary.status.FAIL,
       warningCount: summary.severity.WARNING,
-      skippedCount: summary.status.SKIP + summary.status.NOT_APPLICABLE,
+      skippedCount: summary.status.SKIP,
+      notApplicableCount: summary.status.NOT_APPLICABLE,
       errorCount: runnerErrors
     },
     summary,

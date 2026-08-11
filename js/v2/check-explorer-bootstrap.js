@@ -17,6 +17,12 @@ function initializeCheckExplorer() {
     dashboardController.setCheckReport(checkReport);
     reportController?.setCheckReport(checkReport);
   };
+  const setReportContext = context => {
+    const schedule = context?.canonicalSchedule;
+    explorerController.setCanonicalSchedule(schedule);
+    dashboardController.setCanonicalSchedule(schedule);
+    reportController?.setReportContext(context);
+  };
   const clear = () => {
     explorerController.clear();
     dashboardController.clear();
@@ -26,10 +32,12 @@ function initializeCheckExplorer() {
   window.addEventListener('dienstplan:v2-check-report', event => setCheckReport(event.detail));
   window.DienstplanV2CheckExplorer = Object.freeze({
     setCheckReport,
+    setReportContext,
     clear
   });
   window.DienstplanV2ReviewDashboard = Object.freeze({
     setCheckReport,
+    setReportContext,
     clear
   });
   window.DienstplanV2CheckReport = Object.freeze({
@@ -37,7 +45,7 @@ function initializeCheckExplorer() {
     clear,
     setCanonicalSchedule: schedule => reportController?.setCanonicalSchedule(schedule),
     // Phase 3I.35: the live context (schedule + small header metadata) from the existing session.
-    setReportContext: context => reportController?.setReportContext(context),
+    setReportContext,
     setState: state => reportController?.setState(state)
   });
 }

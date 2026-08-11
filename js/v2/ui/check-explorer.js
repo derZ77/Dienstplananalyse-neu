@@ -8,13 +8,13 @@ const CATEGORY_ORDER = Object.freeze({ BV: 0, ARBZG: 1, FPERSV: 2, INTERNAL: 3, 
 export function createCheckExplorerModel(checkReport, state = {}) {
   const results = Array.isArray(checkReport?.results) ? checkReport.results : [];
   const normalizedState = normalizeState(state);
-  const rows = sortCheckResults(filterCheckResults(results, normalizedState), normalizedState.sortBy);
+  const rows = sortCheckResults(filterCheckResults(results, normalizedState), normalizedState.sortBy, normalizedState.canonicalSchedule);
 
   return {
     checkReportAvailable: checkReport?.type === 'CheckReport',
-    rows: rows.map(toExplorerRow),
-    statistics: calculateCheckStatistics(results),
-    groups: groupCheckResults(rows, normalizedState.groupBy),
+    rows: rows.map(result => toExplorerRow(result, normalizedState)),
+    statistics: calculateCheckStatistics(results, normalizedState),
+    groups: groupCheckResults(rows, normalizedState.groupBy, normalizedState),
     state: normalizedState
   };
 }
@@ -22,7 +22,7 @@ export function createCheckExplorerModel(checkReport, state = {}) {
 export function filterCheckResults(results, state = {}) {
   const filters = normalizeState(state);
   return (Array.isArray(results) ? results : []).filter(result => {
-    const row = toExplorerRow(result);
+    const row = toExplorerRow(result, filters);
     if (filters.category && row.category !== filters.category) return false;
     if (filters.severity && row.severity !== filters.severity) return false;
     if (filters.status && row.status !== filters.status) return false;
@@ -33,13 +33,17 @@ export function filterCheckResults(results, state = {}) {
   });
 }
 
-export function sortCheckResults(results, sortBy = 'severity') {
+export function sortCheckResults(results, sortBy = 'severity', canonicalSchedule = null) {
   const rows = [...(Array.isArray(results) ? results : [])];
-  return rows.sort((left, right) => compareRows(toExplorerRow(left), toExplorerRow(right), sortBy));
+  return rows.sort((left, right) => compareRows(
+    toExplorerRow(left, { canonicalSchedule }),
+    toExplorerRow(right, { canonicalSchedule }),
+    sortBy
+  ));
 }
 
-export function calculateCheckStatistics(results) {
-  const rows = Array.isArray(results) ? results.map(toExplorerRow) : [];
+export function calculateCheckStatistics(results, state = {}) {
+  const rows = Array.isArray(results) ? results.map(result => toExplorerRow(result, state)) : [];
   return {
     total: rows.length,
     pass: rows.filter(row => row.status === 'PASS').length,
@@ -49,10 +53,10 @@ export function calculateCheckStatistics(results) {
   };
 }
 
-export function groupCheckResults(results, groupBy = 'category') {
+export function groupCheckResults(results, groupBy = 'category', state = {}) {
   const groups = new Map();
   for (const result of Array.isArray(results) ? results : []) {
-    const row = toExplorerRow(result);
+    const row = toExplorerRow(result, state);
     const key = groupBy === 'service'
       ? (row.serviceNumbers.length ? row.serviceNumbers.join(', ') : 'Kein Dienstbezug')
       : row.category || 'Ohne Kategorie';
@@ -62,8 +66,8 @@ export function groupCheckResults(results, groupBy = 'category') {
   return [...groups.entries()].map(([key, rows]) => ({ key, rows }));
 }
 
-export function toExplorerRow(result = {}) {
-  const serviceNumbers = extractServiceNumbers(result);
+export function toExplorerRow(result = {}, state = {}) {
+  const serviceNumbers = extractServiceNumbers(result, state.canonicalSchedule);
   return {
     id: String(result.id || ''),
     name: String(result.name || ''),
@@ -81,10 +85,11 @@ export function createCheckExplorerController(root) {
   if (!root) throw new TypeError('Check Explorer requires a root element.');
   const controls = getControls(root);
   let report = null;
+  let canonicalSchedule = null;
 
   const render = () => {
     const state = readState(controls);
-    const model = createCheckExplorerModel(report, state);
+    const model = createCheckExplorerModel(report, { ...state, canonicalSchedule });
     renderStatistics(root, model.statistics);
     renderRows(root, model);
   };
@@ -111,6 +116,10 @@ export function createCheckExplorerController(root) {
       report = nextReport;
       render();
     },
+    setCanonicalSchedule(nextSchedule) {
+      canonicalSchedule = nextSchedule?.type === 'CanonicalSchedule' ? nextSchedule : null;
+      render();
+    },
     clear() {
       report = null;
       render();
@@ -121,15 +130,27 @@ export function createCheckExplorerController(root) {
   };
 }
 
-function extractServiceNumbers(result) {
+function extractServiceNumbers(result, canonicalSchedule) {
   const values = [];
   const add = value => {
     const text = String(value ?? '').trim();
     if (!text) return;
-    const normalized = text.replace(/^service:/i, '');
-    if (!values.includes(normalized)) values.push(normalized);
+    if (!values.includes(text)) values.push(text);
   };
-  (result.affectedServices || []).forEach(service => add(typeof service === 'object' ? service.serviceNumber ?? service.id : service));
+  const hasSchedule = canonicalSchedule?.type === 'CanonicalSchedule';
+  const serviceNumberById = new Map((canonicalSchedule?.services || []).map(service => [String(service.id), String(service.serviceNumber ?? '').trim()]));
+  (result.affectedServices || []).forEach(service => {
+    if (service && typeof service === 'object' && service.serviceNumber != null) {
+      add(service.serviceNumber);
+      return;
+    }
+    const id = String(service && typeof service === 'object' ? service.id : service ?? '').trim();
+    const mapped = serviceNumberById.get(id);
+    if (mapped) add(mapped);
+    // Unit-level consumers have no schedule context. Keep their established compact input
+    // convention, while a productive view with a schedule never exposes an internal id.
+    else if (!hasSchedule) add(id.replace(/^service:/i, ''));
+  });
   for (const collection of [result.details?.violations, result.details?.deviations]) {
     (Array.isArray(collection) ? collection : []).forEach(entry => add(entry?.serviceNumber));
   }
@@ -144,6 +165,7 @@ function normalizeState(state) {
     serviceNumber: normalizedText(state.serviceNumber),
     checkId: normalizedText(state.checkId),
     search: normalizedText(state.search),
+    canonicalSchedule: state.canonicalSchedule?.type === 'CanonicalSchedule' ? state.canonicalSchedule : null,
     sortBy: ['severity', 'serviceNumber', 'checkId', 'category'].includes(state.sortBy) ? state.sortBy : 'severity',
     groupBy: state.groupBy === 'service' ? 'service' : 'category'
   };

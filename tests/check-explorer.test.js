@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calculateCheckStatistics,
+  createCheckExplorerModel,
   filterCheckResults,
   groupCheckResults,
   sortCheckResults
@@ -38,6 +39,20 @@ test('Check Explorer berechnet Statistik und gruppiert nach Kategorie oder Diens
   assert.deepEqual(calculateCheckStatistics(results), { total: 4, pass: 1, warning: 1, error: 1, violation: 1 });
   assert.deepEqual(groupCheckResults(results, 'category').map(group => group.key), ['BV', 'ARBZG', 'CUSTOM']);
   assert.deepEqual(groupCheckResults(results, 'service').map(group => group.key), ['1103', '42', '7', '1201']);
+});
+
+test('Check Explorer resolves affected canonical service ids and never displays them as duty numbers', () => {
+  const canonicalSchedule = {
+    type: 'CanonicalSchedule',
+    services: [{ id: 'activity:1;2', serviceNumber: '4711' }]
+  };
+  const model = createCheckExplorerModel({ type: 'CheckReport', results: [
+    result('BV003', 'BV', 'WARNING', 'FAIL', 'Orte weichen ab', ['activity:1;2'])
+  ] }, { canonicalSchedule });
+
+  assert.deepEqual(model.rows[0].serviceNumbers, ['4711']);
+  assert.equal(model.rows[0].serviceLabel, '4711');
+  assert.doesNotMatch(model.rows[0].serviceLabel, /activity|;/i);
 });
 
 function result(id, category, severity, status, message, affectedServices) {

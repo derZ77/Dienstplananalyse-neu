@@ -8,7 +8,7 @@ const SEVERITY_ORDER = Object.freeze({ VIOLATION: 0, ERROR: 1, WARNING: 2, INFO:
  */
 export function createReviewDashboardModel(checkReport, state = {}) {
   const normalizedState = normalizeState(state);
-  const services = buildServiceSummaries(checkReport?.results || []);
+  const services = buildServiceSummaries(checkReport?.results || [], normalizedState.canonicalSchedule);
   const visibleServices = sortServiceSummaries(filterServiceSummaries(services, normalizedState.filter));
   const expandedServiceNumbers = new Set(normalizedState.expandedServiceNumbers);
 
@@ -20,7 +20,8 @@ export function createReviewDashboardModel(checkReport, state = {}) {
       explorer: createCheckExplorerModel({ type: 'CheckReport', results: service.results }, {
         serviceNumber: service.serviceNumber,
         sortBy: 'severity',
-        groupBy: 'category'
+        groupBy: 'category',
+        canonicalSchedule: normalizedState.canonicalSchedule
       })
     })),
     statistics: calculateServiceStatistics(services),
@@ -28,10 +29,10 @@ export function createReviewDashboardModel(checkReport, state = {}) {
   };
 }
 
-export function buildServiceSummaries(results) {
+export function buildServiceSummaries(results, canonicalSchedule = null) {
   const byService = new Map();
   for (const result of Array.isArray(results) ? results : []) {
-    const row = toExplorerRow(result);
+    const row = toExplorerRow(result, { canonicalSchedule });
     for (const serviceNumber of row.serviceNumbers) {
       if (!byService.has(serviceNumber)) {
         byService.set(serviceNumber, { serviceNumber, results: [] });
@@ -39,7 +40,7 @@ export function buildServiceSummaries(results) {
       byService.get(serviceNumber).results.push(result);
     }
   }
-  return [...byService.values()].map(createServiceSummary);
+  return [...byService.values()].map(service => createServiceSummary(service, canonicalSchedule));
 }
 
 export function filterServiceSummaries(services, filter = 'all') {
@@ -79,10 +80,11 @@ export function createReviewDashboardController(root) {
   const body = root.querySelector('[data-review-dashboard="rows"]');
   const empty = root.querySelector('[data-review-dashboard="empty"]');
   let report = null;
+  let canonicalSchedule = null;
   let expandedServiceNumbers = [];
 
   const render = () => {
-    const model = createReviewDashboardModel(report, { filter: filter.value, expandedServiceNumbers });
+    const model = createReviewDashboardModel(report, { filter: filter.value, expandedServiceNumbers, canonicalSchedule });
     renderStatistics(root, model.statistics);
     renderServices(body, empty, model, serviceNumber => {
       expandedServiceNumbers = toggleExpandedService(expandedServiceNumbers, serviceNumber);
@@ -99,6 +101,10 @@ export function createReviewDashboardController(root) {
       expandedServiceNumbers = [];
       render();
     },
+    setCanonicalSchedule(nextSchedule) {
+      canonicalSchedule = nextSchedule?.type === 'CanonicalSchedule' ? nextSchedule : null;
+      render();
+    },
     clear() {
       report = null;
       expandedServiceNumbers = [];
@@ -107,13 +113,16 @@ export function createReviewDashboardController(root) {
   };
 }
 
-function createServiceSummary({ serviceNumber, results }) {
-  const rows = results.map(toExplorerRow);
-  const highestSeverity = rows.map(row => row.severity)
+function createServiceSummary({ serviceNumber, results }, canonicalSchedule) {
+  const rows = results.map(result => toExplorerRow(result, { canonicalSchedule }));
+  // A severity only signals a service warning when its check actually reached a finding.
+  // SKIP, NOT_APPLICABLE and PASS retain their report meaning and cannot make a duty look warned.
+  const findings = rows.filter(row => row.status === 'FAIL');
+  const highestSeverity = findings.map(row => row.severity)
     .sort((left, right) => (SEVERITY_ORDER[left] ?? 99) - (SEVERITY_ORDER[right] ?? 99))[0] || 'INFO';
   const reviewState = highestSeverity === 'VIOLATION' || highestSeverity === 'ERROR'
     ? 'critical'
-    : highestSeverity === 'WARNING' ? 'warning' : 'unremarkable';
+    : findings.length > 0 ? 'warning' : 'unremarkable';
   return {
     serviceNumber,
     results,
@@ -122,16 +131,17 @@ function createServiceSummary({ serviceNumber, results }) {
     highestSeverity,
     checkCount: rows.length,
     passCount: rows.filter(row => row.status === 'PASS').length,
-    warningCount: rows.filter(row => row.severity === 'WARNING').length,
-    errorCount: rows.filter(row => row.severity === 'ERROR').length,
-    violationCount: rows.filter(row => row.severity === 'VIOLATION').length
+    warningCount: findings.filter(row => row.severity === 'WARNING').length,
+    errorCount: findings.filter(row => row.severity === 'ERROR').length,
+    violationCount: findings.filter(row => row.severity === 'VIOLATION').length
   };
 }
 
 function normalizeState(state) {
   return {
     filter: normalizeFilter(state.filter),
-    expandedServiceNumbers: Array.isArray(state.expandedServiceNumbers) ? state.expandedServiceNumbers.map(String) : []
+    expandedServiceNumbers: Array.isArray(state.expandedServiceNumbers) ? state.expandedServiceNumbers.map(String) : [],
+    canonicalSchedule: state.canonicalSchedule?.type === 'CanonicalSchedule' ? state.canonicalSchedule : null
   };
 }
 

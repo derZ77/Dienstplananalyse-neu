@@ -111,6 +111,11 @@ test('A: the day type is taken from the validity the matcher resolved, or stays 
     matching: { status: 'completed', validity: { scheduleDayType: 'mo_fr' } }
   }));
   assert.equal(matched.metadata.dayType, 'mo_fr');
+
+  const currentMatcherShape = deriveReportContext(sessionState({
+    matching: { status: 'completed', validity: { dayType: 'samstag' } }
+  }));
+  assert.equal(currentMatcherShape.metadata.dayType, 'samstag');
 });
 
 test('A: no file name and no path ever reach the metadata', () => {

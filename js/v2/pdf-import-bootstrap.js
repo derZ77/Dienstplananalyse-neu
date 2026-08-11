@@ -73,7 +73,8 @@ function render(state) {
   // Phase 3I.35: the report also gets the context the session ALREADY holds — the schedule as the
   // same reference plus small header metadata. No second analysis, no second store; a page without
   // the report section simply has no facade to call.
-  globalThis.DienstplanV2CheckReport?.setReportContext(deriveReportContext(state));
+  const reportContext = deriveReportContext(state);
+  globalThis.DienstplanV2CheckExplorer?.setReportContext(reportContext);
   // Phase 4.5: the export action follows the SAME session state. A new import replaces the
   // decision — and with it any earlier projection model — so nothing stale can be exported.
   dienstplanExport?.update(state);
