@@ -40,15 +40,16 @@ test('Phase 6.4: Block 10 projiziert die tabellarische Legacy-Pause mit Ort und 
   const legacyOutput = legacy(rows, {}).pauseHtml;
   const canonical = attachExcelBreakData(adaptExcelRowsToCanonicalSchedule(rows, { layout: 'legacy-tabular-17-column' }));
   const output = createOriginalBlockViewModel(canonical).pauseHtml;
+  const legacySection = output.split('\n\nBV-Pausenlagenprüfung:')[0];
 
   assert.match(legacyOutput, /Pause: 07:15 HLZ.*07:50 HLZ.*35 min/);
   assert.match(legacyOutput, /Mindestpause am Ort HLZ: 39 min/);
   assert.match(legacyOutput, /Arbeitszeit vor Pause 03:29.*außerhalb 03:30 bis 04:30 Stunden/);
 
-  assert.match(output, /^Pausen zwischen 30 und 120 Minuten:/);
-  assert.match(output, /ID 2211/);
-  assert.match(output, /Pause: 07:15 HLZ 12\/1 → 07:50 HLZ 12\/1 \| 35 min/);
-  assert.doesNotMatch(output, /BV-Hinweis|Arbeitszeit vor Unterbrechung|Mindestpause/);
+  assert.match(legacySection, /^Pausen zwischen 30 und 120 Minuten:/);
+  assert.match(legacySection, /ID 2211/);
+  assert.match(legacySection, /Pause: 07:15 HLZ 12\/1 → 07:50 HLZ 12\/1 \| 35 min/);
+  assert.doesNotMatch(legacySection, /BV-Hinweis|Arbeitszeit vor Unterbrechung|Mindestpause/);
 });
 
 test('Phase 6.4: echtes JNV-PDF zeigt jeden strukturierten Unterbrechungseintrag in Block 10', async () => {

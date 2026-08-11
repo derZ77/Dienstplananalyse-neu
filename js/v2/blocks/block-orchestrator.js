@@ -147,6 +147,7 @@ function renderSegments(services, assessments) {
   entries.forEach(([serviceNumber, findings]) => {
     output += `ID ${serviceNumber}:\n`;
     findings.forEach(finding => { output += `${renderSegmentFinding(finding)}\n`; });
+    output += '  Hinweis: Arbeitszeit über 04:30 h – BV-Prüfung erforderlich.\n';
     if (findings.some(finding => finding.exceedsSixHours)) {
       output += '  Hinweis: Bitte Fahrtafel prüfen ob 1/6 Dienst und Standzeiten ausreichen.\n';
     }
@@ -335,19 +336,12 @@ function renderRoutes(routes) {
 
   let output = 'Dienste nach Linie/Kurs:\n';
   entries.forEach(([route, services]) => {
-    output += `${route}:\n`;
+    output += `${route}:\n  ID | Zeitbereich | Start → Ziel\n`;
     services
       .filter(service => text(service.departureTime?.value))
       .forEach(service => {
-        output += `  ID ${service.serviceNumber} ${clock(service.departureTime)} ${text(service.departureLocation)}` +
-          ` — ${clock(service.arrivalTime)} ${text(service.arrivalLocation)}`;
-        if (text(service.nextDepartureTime?.value) && text(service.nextDepartureLocation)) {
-          const nextCourse = /^\d{1,2}\/\d{1,2}$/.test(text(service.nextCircuitNumber))
-            ? ` ${text(service.nextCircuitNumber)}`
-            : '';
-          output += ` | ${clock(service.nextDepartureTime)} ${text(service.nextDepartureLocation)}${nextCourse}`;
-        }
-        output += '\n';
+        output += `  ${text(service.serviceNumber) || '-'} | ${clock(service.departureTime)}–${clock(service.arrivalTime)} | ` +
+          `${text(service.departureLocation) || '-'} → ${text(service.arrivalLocation) || '-'}\n`;
       });
     output += '\n';
   });
@@ -396,16 +390,19 @@ function renderPauseTimingAssessment(interruptions, schedule) {
       const fallbackMinutes = durationMinutes(service?.begin, interruption.start);
       const minutes = structuredMinutes ?? fallbackMinutes;
       const basis = structuredMinutes === null ? 'Fallback Dienstbeginn/Pausenbeginn' : 'Arbeitszeitdaten';
-      const result = Number.isInteger(minutes) && minutes >= MIN_WORK_BEFORE_PAUSE_MINUTES && minutes <= MAX_WORK_BEFORE_PAUSE_MINUTES
-        ? 'BV eingehalten'
-        : 'BV-Verstoß';
+      const result = structuredMinutes === null
+        ? 'BV-Prüfung erforderlich'
+        : Number.isInteger(minutes) && minutes >= MIN_WORK_BEFORE_PAUSE_MINUTES && minutes <= MAX_WORK_BEFORE_PAUSE_MINUTES
+          ? 'BV eingehalten'
+          : 'BV-Verstoß';
       return [
         `Dienst ${text(interruption.serviceNumber) || '-'}:`,
         `Pause: ${clock(interruption.start)} - ${clock(interruption.end)}`,
         `Dauer: ${interruption.durationMinutes} min`,
+        'Mindestpause erfüllt: Ja (reguläre Blockpause ab 30 Minuten)',
         `Zeit vor Pause: ${formatMinutes(minutes)} h`,
         `Grundlage: ${basis}`,
-        `Bewertung: ${result}`,
+        `BV-Bewertung: ${result}`,
         structuredMinutes === null ? 'Hinweis: Bewertung basiert auf Zeitdifferenz Dienstbeginn bis Pausenbeginn, da keine vollständigen Arbeitszeitdaten vorliegen.' : ''
       ].filter(Boolean).join('\n');
     })

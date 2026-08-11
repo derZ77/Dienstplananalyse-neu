@@ -41,12 +41,14 @@ test('Phase 6.13: Block 9 gruppiert nach Linie/Kurs und bewahrt Zeit- und Ortsde
   assert.equal(createOriginalBlockViewModel(schedule).routeText, [
     'Dienste nach Linie/Kurs:',
     '5/11:',
-    '  ID 1104 04:00 C — 05:00 D | 05:00 D 7/2',
-    '  ID 1103 06:00 A — 07:00 B',
+    '  ID | Zeitbereich | Start → Ziel',
+    '  1104 | 04:00–05:00 | C → D',
+    '  1103 | 06:00–07:00 | A → B',
     '',
     '7/2:',
-    '  ID 1104 05:00 D — 06:00 E',
-    '  ID 1105 05:00 E — 06:00 F'
+    '  ID | Zeitbereich | Start → Ziel',
+    '  1104 | 05:00–06:00 | D → E',
+    '  1105 | 05:00–06:00 | E → F'
   ].join('\n'));
 });
 
@@ -75,6 +77,7 @@ test('Phase 6.13: JNV-PDF zeigt vorhandene Linie/Kurs-Daten ohne automatische Be
   const output = createOriginalBlockViewModel((await analyzePdfImport(fileLike(FIXTURES.jnvSchedulePdf))).canonicalSchedule).routeText;
 
   assert.match(output, /^Dienste nach Linie\/Kurs:/);
-  assert.match(output, /ID \d+ \d{2}:\d{2}/);
+  assert.match(output, /ID \| Zeitbereich \| Start → Ziel/);
+  assert.match(output, /\d+ \| \d{2}:\d{2}–\d{2}:\d{2} \| .+ → .+/);
   assert.doesNotMatch(output, /Verstoß|BV-Bewertung|Ergebnis:/);
 });

@@ -119,10 +119,10 @@ test('Phase 8.2: Block 10 keeps 3:30 and 4:30 compliant, rejects 3:15 and 4:45, 
   ];
   const output = createOriginalBlockViewModel(scheduleOf(services)).pauseHtml;
 
-  assert.match(output, /Dienst 2141.*Zeit vor Pause: 03:15 h.*Bewertung: BV-Verstoß/s);
-  assert.match(output, /Dienst 1202.*Zeit vor Pause: 03:30 h.*Bewertung: BV eingehalten/s);
-  assert.match(output, /Dienst 1203.*Zeit vor Pause: 04:30 h.*Bewertung: BV eingehalten/s);
-  assert.match(output, /Dienst 1204.*Zeit vor Pause: 04:45 h.*Bewertung: BV-Verstoß/s);
+  assert.match(output, /Dienst 2141.*Zeit vor Pause: 03:15 h.*BV-Bewertung: BV-Verstoß/s);
+  assert.match(output, /Dienst 1202.*Zeit vor Pause: 03:30 h.*BV-Bewertung: BV eingehalten/s);
+  assert.match(output, /Dienst 1203.*Zeit vor Pause: 04:30 h.*BV-Bewertung: BV eingehalten/s);
+  assert.match(output, /Dienst 1204.*Zeit vor Pause: 04:45 h.*BV-Bewertung: BV-Verstoß/s);
   assert.match(output, /ID 2141:[\s\S]*Pause: 08:15/);
 });
 
