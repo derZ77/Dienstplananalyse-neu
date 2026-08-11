@@ -67,10 +67,10 @@ test('Phase 6.6: Block 2 stellt die tabellarische Legacy-Schichtdauer und 12-Stu
   assert.match(legacyOutput, /Achtung: folgende geteilte Dienste überschreiten 12:00h Schichtdauer:/);
   assert.match(legacyOutput, /ID 2140 \(13:01\)/);
 
-  assert.match(output, /Schichtdauer je geteilter Dienst \(erste Zeit in Spalte O bis letzte Zeit in Spalte P\):/);
-  assert.match(output, /ID 1140: Schichtdauer 12:00 \(Spalte O → P\)/);
-  assert.match(output, /ID 2140: Schichtdauer 13:01 \(Spalte O → P\)/);
-  assert.match(output, /Achtung: folgende geteilte Dienste überschreiten 12:00h Schichtdauer:/);
+  assert.match(output, /Schichtspanne je geteilter Dienst \(Dienstbeginn bis Dienstende\):/);
+  assert.match(output, /ID 1140: Schichtspanne 12:00/);
+  assert.match(output, /ID 2140: Schichtspanne 13:01/);
+  assert.match(output, /Achtung: folgende geteilte Dienste überschreiten 12:00h Schichtspanne:/);
   assert.match(output, /ID 2140 \(13:01\)/);
 });
 
@@ -101,10 +101,10 @@ test('Phase 6.6: echtes JNV-PDF zeigt jede geteilte Canonical-Dienstgrenze mit u
 
   assert.ok(shared.length > 0, 'die JNV-Referenz enthält geteilte Dienste');
   assert.match(output, new RegExp(`Anzahl geteilte Dienste: ${shared.length}`));
-  assert.match(output, /Schichtdauer je geteilter Dienst \(erste Zeit in Spalte O bis letzte Zeit in Spalte P\):/);
+  assert.match(output, /Schichtspanne je geteilter Dienst \(Dienstbeginn bis Dienstende\):/);
   shared.forEach(service => {
     const expected = duration(service.begin.value, service.end.value);
-    assert.match(output, new RegExp(`ID ${service.serviceNumber}: Schichtdauer ${expected} \\(Spalte O → P\\)`));
+    assert.match(output, new RegExp(`ID ${service.serviceNumber}: Schichtspanne ${expected}`));
   });
-  assert.match(output, /Alle geteilten Dienste liegen bei maximal 12:00h Schichtdauer\./);
+  assert.match(output, /Alle geteilten Dienste liegen bei maximal 12:00h Schichtspanne\./);
 });

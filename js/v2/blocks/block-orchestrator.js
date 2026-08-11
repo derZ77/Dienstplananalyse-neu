@@ -29,13 +29,16 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
   const legacy = analysis.legacyAnalyses;
   const planHinweis = legacy.plan.label;
   const pauses = collectInterruptions(canonicalSchedule);
-  const segmentAssessments = collectSegmentAssessments(legacy.sharedServices, checkReport);
+  // A Dienstnummer is the legacy-facing identity of this block. The canonical import may
+  // contain the same duty in more than one source row, but it is still one shared duty.
+  const sharedServices = uniqueSharedServices(legacy.sharedServices);
+  const segmentAssessments = collectSegmentAssessments(sharedServices, checkReport);
   const legacyLongText = `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ')}`;
 
   return {
     planTypeText: `Erkannter Dienstplan: ${planHinweis}`,
     countText: `Anzahl eindeutiger Dienst-IDs: ${legacy.serviceCount}`,
-    sharedText: renderShared(legacy.sharedServices),
+    sharedText: renderShared(sharedServices),
     reserveText: `Anzahl Reserve-Dienste: ${legacy.reserveServices.length}\nIDs: ${ordered(legacy.reserveServices).join(', ')}`,
     longText: `${legacyLongText}\n\n${renderPaidTimeBvAssessment(canonicalSchedule, legacy)}`,
     locText: renderLocations(legacy.differentLocationServices),
@@ -44,7 +47,7 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
     shiftText: renderShifts(legacy.shifts),
     shiftHtml: renderShiftHtml(legacy.shifts),
     routeText: renderRoutes(legacy.routes),
-    pauseHtml: renderInterruptions(pauses, canonicalSchedule, new Set(legacy.sharedServices.map(service => service.serviceNumber))),
+    pauseHtml: renderInterruptions(pauses, canonicalSchedule),
     planHinweis
   };
 }
@@ -90,20 +93,35 @@ function renderShared(services) {
 
   const lines = sorted.map(service => {
     if (service.shiftDuration?.minutes === null) {
-      return `ID ${service.serviceNumber}: keine gültigen Zeiten in Spalte O/P gefunden`;
+      return `ID ${service.serviceNumber}: keine gültigen Dienstbeginn-/Dienstendezeiten gefunden`;
     }
-    return `ID ${service.serviceNumber}: Schichtdauer ${duration(service.shiftDuration)} (Spalte O → P)`;
+    return `ID ${service.serviceNumber}: Schichtspanne ${duration(service.shiftDuration)}`;
   });
   const overTwelve = sorted
     .filter(service => service.exceedsTwelveHours)
     .map(service => `ID ${service.serviceNumber} (${duration(service.shiftDuration)})`);
 
-  output += '\n\nSchichtdauer je geteilter Dienst (erste Zeit in Spalte O bis letzte Zeit in Spalte P):\n';
+  output += '\n\nSchichtspanne je geteilter Dienst (Dienstbeginn bis Dienstende):\n';
   output += lines.join('\n');
   output += overTwelve.length
-    ? `\n\nAchtung: folgende geteilte Dienste überschreiten 12:00h Schichtdauer:\n${overTwelve.join(', ')}`
-    : '\n\nAlle geteilten Dienste liegen bei maximal 12:00h Schichtdauer.';
+    ? `\n\nAchtung: folgende geteilte Dienste überschreiten 12:00h Schichtspanne:\n${overTwelve.join(', ')}`
+    : '\n\nAlle geteilten Dienste liegen bei maximal 12:00h Schichtspanne.';
   return output;
+}
+
+function uniqueSharedServices(services) {
+  const byNumber = new Map();
+  for (const service of services || []) {
+    const key = text(service?.serviceNumber);
+    if (!key) continue;
+    const existing = byNumber.get(key);
+    // When the same duty is represented twice, retain the most complete (and if needed
+    // longer) existing canonical span without inflating the legacy duty count.
+    const existingMinutes = existing?.shiftDuration?.minutes ?? -1;
+    const candidateMinutes = service?.shiftDuration?.minutes ?? -1;
+    if (!existing || candidateMinutes > existingMinutes) byNumber.set(key, service);
+  }
+  return [...byNumber.values()];
 }
 
 function renderLocations(locations) {
@@ -341,21 +359,20 @@ function collectInterruptions(schedule) {
   const perService = (schedule?.services || []).flatMap(service => service?.interruptions || []);
   const seen = new Set();
   return [...explicit, ...perService].filter(interruption => {
-    const key = interruption.id || `${interruption.serviceId}|${clock(interruption.start)}|${clock(interruption.end)}`;
+    const key = interruption.id || `${interruption.serviceId || interruption.serviceNumber}|${clock(interruption.start)}|${clock(interruption.end)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
-function renderInterruptions(interruptions, schedule, sharedServiceNumbers) {
+function renderInterruptions(interruptions, schedule) {
   const orderedInterruptions = interruptions
     .filter(interruption => Number.isInteger(interruption.durationMinutes))
     .sort(compareInterruption);
   const legacyPauses = orderedInterruptions.filter(interruption =>
     interruption.durationMinutes >= MIN_NORMAL_PAUSE_MINUTES &&
-    interruption.durationMinutes <= MAX_NORMAL_PAUSE_MINUTES &&
-    !sharedServiceNumbers.has(interruption.serviceNumber));
+    interruption.durationMinutes <= MAX_NORMAL_PAUSE_MINUTES);
   const additional = orderedInterruptions.filter(interruption => !legacyPauses.includes(interruption));
   const sections = ['Pausen zwischen 30 und 120 Minuten:', ''];
 
@@ -364,17 +381,17 @@ function renderInterruptions(interruptions, schedule, sharedServiceNumbers) {
     : 'Keine Pausen im Bereich 30–120 Minuten gefunden.');
   if (legacyPauses.length) sections.push('', renderPauseTimingAssessment(legacyPauses, schedule));
   if (additional.length) {
-    sections.push('', 'Zusätzliche Canonical-Unterbrechungen:', '', renderCanonicalInterruptionEntries(additional));
+    sections.push('', 'Weitere Unterbrechungen (keine regulären Blockpausen):', '', renderCanonicalInterruptionEntries(additional));
   }
   return sections.join('\n').trim();
 }
 
 function renderPauseTimingAssessment(interruptions, schedule) {
-  const services = new Map((schedule?.services || []).map(service => [service.id, service]));
+  const services = serviceLookup(schedule);
   return [
     'BV-Pausenlagenprüfung:',
     ...interruptions.map(interruption => {
-      const service = services.get(interruption.serviceId);
+      const service = serviceForInterruption(services, interruption);
       const structuredMinutes = structuredWorkMinutesBeforePause(service, interruption);
       const fallbackMinutes = durationMinutes(service?.begin, interruption.start);
       const minutes = structuredMinutes ?? fallbackMinutes;
@@ -401,14 +418,19 @@ function structuredWorkMinutesBeforePause(service, interruption) {
   const activities = (service?.activities || []).filter(activity =>
     Number.isInteger(activity.departureTime?.minutesSinceStartOfDay) &&
     Number.isInteger(activity.arrivalTime?.minutesSinceStartOfDay) &&
-    activity.arrivalTime.minutesSinceStartOfDay <= pauseStart);
+    activity.arrivalTime.minutesSinceStartOfDay <= pauseStart &&
+    !isBreakActivity(activity));
   if (!activities.length) return null;
   const durations = activities.map(activity => durationMinutes(activity.departureTime, activity.arrivalTime));
   return durations.every(Number.isInteger) ? durations.reduce((sum, value) => sum + value, 0) : null;
 }
 
+function isBreakActivity(activity) {
+  return /pause|unterbrechung/i.test(`${text(activity?.activityType)} ${text(activity?.rawActivity)}`);
+}
+
 function renderLegacyPauseEntries(interruptions, schedule) {
-  const services = new Map((schedule?.services || []).map(service => [service.id, service]));
+  const services = serviceLookup(schedule);
   const grouped = new Map();
   interruptions.forEach(interruption => {
     const entries = grouped.get(interruption.serviceNumber) || [];
@@ -418,7 +440,7 @@ function renderLegacyPauseEntries(interruptions, schedule) {
   return [...grouped.entries()].sort(([left], [right]) => number(left) - number(right)).map(([serviceNumber, entries]) => [
     `ID ${text(serviceNumber) || '-'}:`,
     ...entries.map(interruption => {
-    const service = services.get(interruption.serviceId);
+      const service = serviceForInterruption(services, interruption);
       const before = linkedActivity(service, interruption, 'before');
       const after = linkedActivity(service, interruption, 'after');
       return `  Pause: ${clock(interruption.start)} ${text(before?.arrivalLocation) || text(interruption.startLocation)}${courseText(before)} → ` +
@@ -449,10 +471,29 @@ function renderCanonicalInterruptionEntries(interruptions) {
 }
 
 function interruptionLabel(interruption) {
+  if (interruption.durationMinutes < MIN_NORMAL_PAUSE_MINUTES) return 'Kurze Unterbrechung (keine reguläre Blockpause; möglicher 1/6-Kontext)';
+  if (interruption.durationMinutes > MAX_NORMAL_PAUSE_MINUTES) return 'Lange Unterbrechung (geteilter Dienst; keine reguläre Blockpause)';
   if (interruption.kind === 'pause') return 'Pause';
   if (interruption.kind === 'turnaround') return 'Wendezeit';
   if (interruption.kind === 'walkingTime') return 'Wegezeit';
   return 'Dienstunterbrechung';
+}
+
+function serviceLookup(schedule) {
+  const byId = new Map();
+  const byNumber = new Map();
+  for (const service of schedule?.services || []) {
+    if (service?.id) byId.set(service.id, service);
+    const serviceNumber = text(service?.serviceNumber);
+    if (serviceNumber && !byNumber.has(serviceNumber)) byNumber.set(serviceNumber, service);
+  }
+  return { byId, byNumber };
+}
+
+function serviceForInterruption(lookup, interruption) {
+  return lookup.byId.get(interruption?.serviceId)
+    || lookup.byNumber.get(text(interruption?.serviceNumber))
+    || null;
 }
 
 function interruptionLocation(interruption) {

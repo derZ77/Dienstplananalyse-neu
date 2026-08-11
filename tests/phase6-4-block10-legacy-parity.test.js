@@ -59,8 +59,8 @@ test('Phase 6.4: echtes JNV-PDF zeigt jeden strukturierten Unterbrechungseintrag
 
   assert.ok(interruptions.length > 0, 'JNV-Referenz enthält übernommene Unterbrechungen');
   assert.match(output, /Pausen zwischen 30 und 120 Minuten:/);
-  assert.match(output, /Zusätzliche Canonical-Unterbrechungen:/);
-  assert.equal((output.match(/Dienstunterbrechung:/g) || []).length, interruptions.length);
+  assert.match(output, /Weitere Unterbrechungen \(keine regulären Blockpausen\):/);
+  assert.equal((output.match(/Lange Unterbrechung \(geteilter Dienst; keine reguläre Blockpause\):/g) || []).length, interruptions.length);
   interruptions.forEach(interruption => {
     assert.match(output, new RegExp(`${interruption.start.value}–${interruption.end.value} \\| ${interruption.durationMinutes} min`));
   });

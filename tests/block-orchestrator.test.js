@@ -44,5 +44,5 @@ test('Block-Orchestrator behandelt eine bestätigte Unterbrechung als Datenmodel
   const blocks = createOriginalBlockViewModel({ ...schedule, interruptions: [interruption] });
 
   assert.match(blocks.pauseHtml, /1140/);
-  assert.match(blocks.pauseHtml, /09:00–09:30/);
+  assert.match(blocks.pauseHtml, /Pause: 09:00.*09:30.*30 min/);
 });
