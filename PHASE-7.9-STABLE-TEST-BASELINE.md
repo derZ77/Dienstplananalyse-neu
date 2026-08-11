@@ -23,6 +23,14 @@ Vor dem Commit wurde `npm test` ausgeführt:
 
 Die bekannten, nicht-fatalen PDF-Testumgebungswarnungen zu optionalem Canvas bzw. Standard-Font-Daten beeinflussen weder die Analyseergebnisse noch den XLSX-Export.
 
+## Commit und GitHub-Testdeployment
+
+- Commit: `729ba23 feat: finalize dienstuebersicht xlsx export and layout`
+- Branch: `main`
+- Remote: `origin/main` entspricht dem lokalen Commit.
+- GitHub Pages: `https://derz77.github.io/Dienstplananalyse-neu/` liefert die aktualisierte Startseite mit HTTP 200.
+- Die ausgelieferte Datei `js/v2/export/dienstuebersicht-export-ui.js` wurde mit dem lokalen Modul verglichen und entspricht dem gepushten Stand. Damit sind die XLSX-Bibliothek und die produktive Dienstübersicht-Exportanbindung erreichbar.
+
 ## Repository-Hygiene
 
 Lokale XLSX-Vorschauen, temporäre Excel-Sperrdateien und sonstige Ausgaben unter `outputs/` werden nicht versioniert. Es wurden keine persönlichen Dokumente oder Quelldateien in den Commit aufgenommen.
