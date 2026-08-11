@@ -36,6 +36,24 @@ test('normalisiert den Canonical Schedule eines Legacy-Excel-ImportResult für d
   }, file('plan.xlsx'));
 
   assert.equal(state.primaryImport.canonicalSchedule, canonicalSchedule);
+  assert.equal(state.primaryImport.documentType, 'legacy_excel_schedule');
+});
+
+test('führt den vorhandenen JES-Basislauf auch für einen erkannten eigenständigen Legacy-Excel-Dienstplan aus', async () => {
+  let calls = 0;
+  const session = createMultiDocumentSession({
+    runJesBaseAnalysis: () => { calls += 1; return okAnalysis(); }
+  });
+  const canonicalSchedule = { type: 'CanonicalSchedule', services: [], activities: [], interruptions: [], warnings: [] };
+  session.setPrimaryResult({
+    classification: { type: 'legacy_excel_schedule', confidence: 'exact' },
+    importResult: { ok: true, documentType: 'legacy_excel_schedule', data: canonicalSchedule }
+  }, file('jes.xlsx'));
+
+  const state = await session.analyzeRules();
+  assert.equal(calls, 1);
+  assert.equal(state.checkReport, fakeReport);
+  assert.equal(state.ruleAnalysis.status, 'completed');
 });
 
 test('without an exact match the rule analysis does not run and no CheckReport is produced', async () => {

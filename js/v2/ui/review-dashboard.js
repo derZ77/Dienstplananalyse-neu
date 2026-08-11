@@ -14,6 +14,7 @@ export function createReviewDashboardModel(checkReport, state = {}) {
 
   return {
     checkReportAvailable: checkReport?.type === 'CheckReport',
+    checkResultCount: Array.isArray(checkReport?.results) ? checkReport.results.length : 0,
     services: visibleServices.map(service => ({
       ...service,
       expanded: expandedServiceNumbers.has(service.serviceNumber),
@@ -168,9 +169,11 @@ function renderStatistics(root, statistics) {
 function renderServices(body, empty, model, onToggle) {
   body.replaceChildren();
   empty.hidden = model.services.length > 0;
-  empty.textContent = model.checkReportAvailable
-    ? 'Keine Dienste entsprechen dem gewählten Filter.'
-    : 'Noch kein CheckReport vorhanden.';
+  empty.textContent = !model.checkReportAvailable
+    ? 'Noch kein CheckReport vorhanden.'
+    : model.checkResultCount === 0
+      ? 'Der Prüflauf hat keine dienstbezogenen Check-Ergebnisse geliefert.'
+      : 'Keine Dienste entsprechen dem gewählten Filter.';
   for (const service of model.services) {
     const row = document.createElement('tr');
     row.className = `review-service-row review-state-${service.reviewState}`;

@@ -82,9 +82,12 @@ function isStandaloneJnvSchedule(primaryImport, companionImport) {
 
 function isStandaloneJesSchedule(primaryImport, companionImport) {
   return !companionImport
-    && primaryImport?.detection?.status === 'supported'
-    && primaryImport?.detection?.profile?.id === 'jes-regionalbus-v1'
-    && primaryImport?.canonicalSchedule?.type === 'CanonicalSchedule';
+    && primaryImport?.canonicalSchedule?.type === 'CanonicalSchedule'
+    && (
+      (primaryImport?.detection?.status === 'supported'
+        && primaryImport?.detection?.profile?.id === 'jes-regionalbus-v1')
+      || primaryImport?.documentType === 'legacy_excel_schedule'
+    );
 }
 
 // PDF imports already expose `canonicalSchedule` at their top level. The existing
@@ -95,7 +98,11 @@ function normalizePrimaryImport(result) {
   if (result?.canonicalSchedule?.type === 'CanonicalSchedule') return result;
   const schedule = result?.importResult?.data;
   return schedule?.type === 'CanonicalSchedule'
-    ? { ...result, canonicalSchedule: schedule }
+    ? {
+      ...result,
+      canonicalSchedule: schedule,
+      documentType: result.documentType ?? result.importResult?.documentType ?? result.classification?.type ?? null
+    }
     : result;
 }
 

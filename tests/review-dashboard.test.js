@@ -58,6 +58,12 @@ test('Review Dashboard liefert Statistik und einen aufklappbaren dienstbezogenen
   assert.deepEqual(toggleExpandedService(expanded, '1103'), []);
 });
 
+test('Review Dashboard identifies an available empty CheckReport separately from a filter-empty result', () => {
+  const model = createReviewDashboardModel({ type: 'CheckReport', results: [] });
+  assert.equal(model.checkReportAvailable, true);
+  assert.equal(model.checkResultCount, 0);
+});
+
 test('Review Dashboard counts only actual FAIL results as warned and resolves canonical service ids', () => {
   const canonicalSchedule = {
     type: 'CanonicalSchedule',
