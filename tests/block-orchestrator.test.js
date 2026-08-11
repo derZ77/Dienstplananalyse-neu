@@ -26,7 +26,8 @@ test('Block-Orchestrator projiziert einen Canonical Schedule vollständig auf di
   assert.match(blocks.longText, /1101.*1140|1140.*1101/);
   assert.match(blocks.locText, /1140/);
   assert.match(blocks.segmentText, /1140/);
-  assert.equal(blocks.realDrivingTimeText, 'Für tabellarische Dienstpläne nicht verfügbar.');
+  assert.match(blocks.realDrivingTimeText, /Lenkzeit-\/Fahrzeitbewertung nicht verfügbar/);
+  assert.match(blocks.realDrivingTimeText, /Wagenkarte oder Umlauftafel/);
   assert.match(blocks.shiftText, /GF1/);
   assert.match(blocks.routeText, /5\/11/);
   assert.match(blocks.pauseHtml, /Keine Pausen|Keine Dienstunterbrechungen/);

@@ -16,6 +16,13 @@ const TEXT_TARGETS = Object.freeze({
 const HTML_TARGETS = Object.freeze({
   'shift-result': 'shiftHtml'
 });
+const COMPACT_TARGETS = Object.freeze({
+  'loc-result': 'Dienstort-Details anzeigen',
+  'shift-result': 'Schichtzuordnungen anzeigen',
+  'route-result': 'Fahrten nach Linie/Kurs anzeigen',
+  'pause-result': 'Pausen und Unterbrechungen anzeigen'
+});
+const COMPACT_LINE_THRESHOLD = 14;
 
 export function renderOriginalBlocks(blocks, { document = globalThis.document } = {}) {
   if (!blocks || !document?.getElementById) return;
@@ -23,9 +30,9 @@ export function renderOriginalBlocks(blocks, { document = globalThis.document } 
     const target = document.getElementById(id);
     if (!target) continue;
     const htmlField = HTML_TARGETS[id];
-    if (htmlField && blocks[htmlField]) target.innerHTML = String(blocks[htmlField]);
+    if (htmlField && blocks[htmlField]) target.innerHTML = renderBlockHtml(id, blocks[htmlField], blocks[field]);
     // Lightweight test/document facades retain the legacy textContent contract.
-    else if (typeof target.innerHTML === 'string') target.innerHTML = renderExistingStatusText(blocks[field]);
+    else if (typeof target.innerHTML === 'string') target.innerHTML = renderBlockText(id, blocks[field]);
     else target.textContent = String(blocks[field] ?? '');
   }
   const plan = document.getElementById('current-plan-display');
@@ -43,6 +50,21 @@ export function renderExistingStatusText(value) {
     const statusClass = blockStatusClass(paragraph);
     return `<div class="result-status ${statusClass}">${paragraph.replace(/\n/g, '<br>')}</div>`;
   }).join('');
+}
+
+function renderBlockText(id, value) {
+  const rendered = renderExistingStatusText(value);
+  const summary = COMPACT_TARGETS[id];
+  const lineCount = String(value ?? '').split('\n').filter(Boolean).length;
+  if (!summary || lineCount <= COMPACT_LINE_THRESHOLD) return rendered;
+  return `<details class="result-details"><summary>${escapeHtml(summary)} (${lineCount})</summary>${rendered}</details>`;
+}
+
+function renderBlockHtml(id, html, textValue) {
+  const summary = COMPACT_TARGETS[id];
+  const lineCount = String(textValue ?? '').split('\n').filter(Boolean).length;
+  if (!summary || lineCount <= COMPACT_LINE_THRESHOLD) return String(html);
+  return `<details class="result-details"><summary>${escapeHtml(summary)} (${lineCount})</summary>${html}</details>`;
 }
 
 function blockStatusClass(text) {

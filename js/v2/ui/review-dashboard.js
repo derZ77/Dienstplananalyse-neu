@@ -12,7 +12,11 @@ export function createReviewDashboardModel(checkReport, state = {}) {
   const visibleServices = sortServiceSummaries(filterServiceSummaries(services, normalizedState.filter));
   const expandedServiceNumbers = new Set(normalizedState.expandedServiceNumbers);
   const baseStatistics = calculateServiceStatistics(services);
-  const evaluatedServices = normalizedState.canonicalSchedule?.services?.length ?? baseStatistics.totalServices;
+  const recognizedServices = normalizedState.canonicalSchedule?.services?.length ?? baseStatistics.totalServices;
+  const hasRuleResults = Array.isArray(checkReport?.results) && checkReport.results.length > 0;
+  const reportState = checkReport?.type !== 'CheckReport'
+    ? 'missing'
+    : hasRuleResults ? 'assessed' : 'empty';
 
   return {
     checkReportAvailable: checkReport?.type === 'CheckReport',
@@ -29,9 +33,14 @@ export function createReviewDashboardModel(checkReport, state = {}) {
     })),
     statistics: {
       ...baseStatistics,
-      evaluatedServices,
-      attentionServices: baseStatistics.criticalServices + baseStatistics.warningServices
+      recognizedServices,
+      evaluatedServices: hasRuleResults ? baseStatistics.totalServices : 0,
+      attentionServices: hasRuleResults ? baseStatistics.criticalServices + baseStatistics.warningServices : 0,
+      // A CheckReport without any result says nothing about whether duties are unremarkable.
+      // Keep that state visibly absent instead of projecting a misleading zero.
+      unremarkableServices: hasRuleResults ? baseStatistics.unremarkableServices : null
     },
+    reportState,
     state: normalizedState
   };
 }
@@ -106,6 +115,9 @@ export function createReviewDashboardController(root) {
   const render = () => {
     const model = createReviewDashboardModel(report, { filter: filter.value, expandedServiceNumbers, canonicalSchedule });
     renderStatistics(root, model.statistics);
+    renderDashboardState(root, model);
+    const filterContainer = filter?.closest('.review-dashboard-filter');
+    if (filterContainer) filterContainer.hidden = model.reportState !== 'assessed';
     renderServices(body, empty, model, serviceNumber => {
       expandedServiceNumbers = toggleExpandedService(expandedServiceNumbers, serviceNumber);
       render();
@@ -184,8 +196,27 @@ function compareServiceNumber(left, right) {
 function renderStatistics(root, statistics) {
   for (const [key, value] of Object.entries(statistics)) {
     const target = root.querySelector(`[data-review-stat="${key}"]`);
-    if (target) target.textContent = String(value);
+    if (!target) continue;
+    target.textContent = value === null ? '' : String(value);
+    target.parentElement.hidden = value === null;
   }
+}
+
+function renderDashboardState(root, model) {
+  const target = root.querySelector('[data-review-dashboard="state"]');
+  if (!target) return;
+  if (model.reportState === 'missing') {
+    target.textContent = 'Noch keine Regelbewertung verfügbar.';
+    target.hidden = false;
+    return;
+  }
+  if (model.reportState === 'empty') {
+    target.textContent = `Für ${model.statistics.recognizedServices} erkannte Dienste liegen keine Regelergebnisse vor. Daher werden keine unauffälligen Dienste ausgewiesen.`;
+    target.hidden = false;
+    return;
+  }
+  target.hidden = true;
+  target.textContent = '';
 }
 
 function renderServices(body, empty, model, onToggle) {

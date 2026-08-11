@@ -35,7 +35,8 @@ test('Phase 8.4B: dashboard names the complete evaluated plan mass and defaults 
   assert.deepEqual(model.services.map(service => service.serviceNumber), ['1001']);
 
   const html = source('../index.html');
-  assert.match(html, /data-review-stat="evaluatedServices"[^>]*>0<\/strong>Ausgewertete Dienste/);
+  assert.match(html, /data-review-stat="recognizedServices"[^>]*>0<\/strong>Dienste erkannt/);
+  assert.match(html, /data-review-stat="evaluatedServices"[^>]*>0<\/strong>Bewertete Dienste/);
   assert.match(html, /<option value="findings" selected>Nur Auffälligkeiten<\/option>/);
   assert.match(html, /<th>Dienst<\/th><th>Auffälligkeit<\/th><th>Regel<\/th><th>Status<\/th>/);
   assert.doesNotMatch(html, /<th>Anzahl Checks<\/th>/);

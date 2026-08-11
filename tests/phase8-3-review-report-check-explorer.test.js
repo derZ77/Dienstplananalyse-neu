@@ -40,7 +40,8 @@ test('Phase 8.3: JES PDF remains a valid empty-report review without an invented
 
   assert.equal(analysis.checkReport.results.length, 0);
   assert.deepEqual(dashboard.statistics, {
-    totalServices: 0, criticalServices: 0, warningServices: 0, unremarkableServices: 0,
-    evaluatedServices: primaryImport.canonicalSchedule.services.length, attentionServices: 0
+    totalServices: 0, criticalServices: 0, warningServices: 0, unremarkableServices: null,
+    recognizedServices: primaryImport.canonicalSchedule.services.length, evaluatedServices: 0, attentionServices: 0
   });
+  assert.equal(dashboard.reportState, 'empty');
 });

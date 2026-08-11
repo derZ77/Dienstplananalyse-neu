@@ -59,9 +59,15 @@ test('Review Dashboard liefert Statistik und einen aufklappbaren dienstbezogenen
 });
 
 test('Review Dashboard identifies an available empty CheckReport separately from a filter-empty result', () => {
-  const model = createReviewDashboardModel({ type: 'CheckReport', results: [] });
+  const canonicalSchedule = { type: 'CanonicalSchedule', services: [{ serviceNumber: '1103' }, { serviceNumber: '1104' }] };
+  const model = createReviewDashboardModel({ type: 'CheckReport', results: [] }, { canonicalSchedule });
   assert.equal(model.checkReportAvailable, true);
   assert.equal(model.checkResultCount, 0);
+  assert.equal(model.reportState, 'empty');
+  assert.deepEqual(model.statistics, {
+    totalServices: 0, criticalServices: 0, warningServices: 0,
+    unremarkableServices: null, recognizedServices: 2, evaluatedServices: 0, attentionServices: 0
+  });
 });
 
 test('Review Dashboard counts only actual FAIL results as warned and resolves canonical service ids', () => {

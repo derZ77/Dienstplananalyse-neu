@@ -390,6 +390,9 @@
 
 		/* Status-Farbvertrag: Farbe unterstützt den sichtbaren Status-Text, ersetzt ihn nie. */
 		.result-status { margin: .35rem 0; padding: .45rem .6rem; border-left: 4px solid #90a4ae; border-radius: 4px; }
+		.result-details { margin: .25rem 0; border: 1px solid #d7e1e6; border-radius: 6px; padding: .2rem .55rem .55rem; }
+		.result-details > summary { cursor: pointer; color: #01579b; font-weight: 600; padding: .35rem 0; }
+		.result-details > summary:focus-visible { outline: 3px solid #01579b; outline-offset: 2px; }
 		.status-fail { background: #fff0ed; border-left: 4px solid #b73524; }
 		.status-fail, .status-fail .report-status-label { color: #7d2117; }
 		.status-warning { background: #fff8dd; border-left: 4px solid #d98b00; color: #704b00; }
@@ -547,18 +550,34 @@
 		#pruefbericht .report-print-all { display: none; }
 		@page { size: A4 portrait; margin: 18mm 15mm; }
 		@media print {
+			/* Full analysis print: result blocks 1–10 and the check report remain; controls do not. */
+			body { background: #fff; color: #000; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+			.container { max-width: none; }
+			h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+			.block { box-shadow: none; border: 1pt solid #90a4ae; border-radius: 0; padding: 4mm; margin: 0 0 4mm; }
+			.result, .result-status { break-inside: avoid; page-break-inside: avoid; }
 			.no-print { display: none !important; }
 			#check-explorer { display: none !important; }
 			#review-dashboard { display: none !important; }
+			#print-excluded-controls { display: none !important; }
 			#pruefbericht .report-results { display: none !important; }
 			#pruefbericht .report-print-all { display: block !important; }
 			#pruefbericht details { display: block; }
 			#pruefbericht details > div { display: block !important; }
 			#pruefbericht summary { list-style: none; }
 			#pruefbericht { font-size: 10.5pt; color: #000; }
-			#pruefbericht .report-status { border: 1pt solid #000; color: #000 !important; }
+			/* Text labels stay visible; the existing status colours remain a secondary print signal. */
+			#pruefbericht .report-status[data-status="FAIL"] { color: #7d2117 !important; background: #fff0ed; border-color: #b73524; }
+			#pruefbericht .report-status[data-status="PASS"] { color: #1d5c2f !important; background: #edf8ef; border-color: #2e7d32; }
+			#pruefbericht .report-status[data-status="SKIP"],
+			#pruefbericht .report-status[data-status="NOT_APPLICABLE"] { color: #455a64 !important; background: #f3f6f7; border-color: #90a4ae; }
+			#pruefbericht .report-result[data-status="FAIL"] { border-left: 4pt solid #b73524; }
+			#pruefbericht .report-result[data-status="PASS"] { border-left: 4pt solid #2e7d32; }
 			#pruefbericht .report-result { border: 1pt solid #000; break-inside: avoid; page-break-inside: avoid; }
 			#pruefbericht .report-handover { break-before: auto; }
+			/* Web lists may be collapsed on screen; printing must retain their complete content. */
+			.result-details > summary { display: none !important; }
+			.result-details:not([open]) > :not(summary) { display: block !important; }
 		}
 		@media print { #pruefbericht .no-print { display: none !important; } }
 		@media print { #pruefbericht details { display: block; } #pruefbericht details > div { display: block !important; } }
@@ -570,6 +589,7 @@
 		<h1>Dienstplan-Analyse (Schritt für Schritt)</h1>
 
 		<!-- Block 0 -->
+		<div id="print-excluded-controls">
 		<div class="block">
 			<h2>0. Datei auswählen</h2>
 			<input id="file-input" type="file" accept=".xlsx,.xls,.pdf,application/pdf" />
@@ -603,6 +623,8 @@
 			<div id="search-info" class="result">
 				Geben Sie einen Suchbegriff ein, um die Ergebnis-Blöcke zu filtern.
 			</div>
+		</div>
+
 		</div>
 
 		<!-- Block 1 -->
@@ -671,10 +693,12 @@
 			<h2 id="review-dashboard-title">Auffälligkeitsübersicht</h2>
 			<p>Schnelle Priorisierung: nur Dienste mit echten Prüfauffälligkeiten werden standardmäßig angezeigt.</p>
 			<div class="review-dashboard-statistics" aria-label="Dienstübersicht Statistik">
-				<div class="review-dashboard-stat"><strong data-review-stat="evaluatedServices">0</strong>Ausgewertete Dienste</div>
+				<div class="review-dashboard-stat"><strong data-review-stat="recognizedServices">0</strong>Dienste erkannt</div>
+				<div class="review-dashboard-stat"><strong data-review-stat="evaluatedServices">0</strong>Bewertete Dienste</div>
 				<div class="review-dashboard-stat warning"><strong data-review-stat="attentionServices">0</strong>Dienste mit Auffälligkeiten</div>
 				<div class="review-dashboard-stat unremarkable"><strong data-review-stat="unremarkableServices">0</strong>Ohne Regelauffälligkeit</div>
 			</div>
+			<p class="review-dashboard-empty" data-review-dashboard="state" aria-live="polite">Noch keine Regelbewertung verfügbar.</p>
 			<div class="review-dashboard-filter">
 				<label>Ansicht
 					<select data-review-dashboard="filter"><option value="findings" selected>Nur Auffälligkeiten</option><option value="all">Alle ausgewerteten Dienste</option><option value="critical">Nur kritische Dienste</option><option value="warning">Nur Dienste mit Warnungen</option><option value="unremarkable">Nur Dienste ohne Regelauffälligkeit</option></select>

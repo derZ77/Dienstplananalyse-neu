@@ -6,7 +6,13 @@
 
 import { analyzeCanonicalScheduleWithMigratedLegacyChecks } from '../analysis/analysis-core.js';
 
-const UNAVAILABLE_DRIVING_TIME = 'Für tabellarische Dienstpläne nicht verfügbar.';
+const UNAVAILABLE_DRIVING_TIME = [
+  'Lenkzeit-/Fahrzeitbewertung nicht verfügbar.',
+  '',
+  'Grund: Der Dienstplan enthält keine Wagenkarte oder Umlauftafel mit dokumentierter Fahrtenfolge sowie realen Fahr- und Pausenzeiten.',
+  '',
+  'Optional: Eine passende Wagenkarte oder Umlauftafel als Begleitdokument ergänzen. Sie erweitert die Auswertung; für die übrigen Analyseblöcke ist sie nicht erforderlich.'
+].join('\n');
 const SPECIAL_PAUSE_LOCATIONS = new Set(['HLZ', 'TGR', 'LGR']);
 const MIN_NORMAL_PAUSE_MINUTES = 30;
 const MAX_NORMAL_PAUSE_MINUTES = 120;
