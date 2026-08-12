@@ -51,6 +51,7 @@ export function deriveReportContext(state) {
       // hand-over rather than a title/file-name inference.
       dayType: text(state?.matching?.validity?.dayType)
         || text(state?.matching?.validity?.scheduleDayType)
+        || text(canonicalSchedule?.validity?.dayType)
         || null,
       serviceCount: canonicalSchedule && Array.isArray(canonicalSchedule.services)
         ? canonicalSchedule.services.length

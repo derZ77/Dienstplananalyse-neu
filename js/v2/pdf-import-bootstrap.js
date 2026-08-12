@@ -8,6 +8,7 @@ import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
 import { clearOriginalBlocks, renderOriginalBlocks } from './blocks/block-renderer.js';
 import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
 import { initializeAnalysisSearch } from './ui/analysis-search-controller.js';
+import { formatCanonicalValidity } from './schedule/canonical-validity.js';
 
 // Phase 3F: one memory-only session holds the primary (captured from the unchanged
 // single import) and an optional companion. No storage, no network, no matching.
@@ -51,7 +52,9 @@ function primaryAnalysisStatus(state) {
   const analysisHint = state.checkReport
     ? 'Die regelbasierte Prüfung wurde durchgeführt.'
     : 'Noch keine Analyse durchgeführt.';
-  return `Unterstütztes PDF erkannt: ${detection.profile.label}${pageHint}. ${analysisHint}`;
+  const validity = state?.primaryImport?.canonicalSchedule?.validity;
+  const validityHint = validity ? ` Gültigkeit: ${formatCanonicalValidity(validity)}.` : '';
+  return `Unterstütztes PDF erkannt: ${detection.profile.label}${pageHint}.${validityHint} ${analysisHint}`;
 }
 
 function render(state) {

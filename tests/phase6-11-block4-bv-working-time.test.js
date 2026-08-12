@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { adaptExcelRowsToCanonicalSchedule } from '../js/v2/excel/excel-canonical-adapter.js';
 import { createOriginalBlockViewModel } from '../js/v2/blocks/block-orchestrator.js';
 
-const header = ['Kopf'];
+const header = ['Dienste Montag bis Freitag (Schule)'];
 const serviceRow = (number, paidTime) =>
   ['', '', number, 'Dienst', '', '03:00', 'A', '', '', '12:00', 'B', '', '', '', '03:00', '12:00', paidTime];
 
@@ -84,8 +84,8 @@ test('Phase 6.11: JES-Excel und JES-PDF bewahren dieselbe Legacy-Liste und BV-Be
   const pdfText = createOriginalBlockViewModel(pdf).longText;
   assert.equal(pdfText, excelText);
   assert.match(pdfText, /^Dienste >08:30h:/);
-  assert.match(pdfText, /BV-Bewertung:/);
-  assert.match(pdfText, /nicht eindeutig als Montag bis Freitag erkannt/);
+  assert.match(pdfText, /BV-Bewertung \(Mo–Fr\):/);
+  assert.match(pdfText, /Ergebnis: BV eingehalten\./);
 });
 
 test('Phase 6.11: JNV-PDF zeigt bei vorhandener bezahlter Zeit die getrennte BV-Bewertung', async () => {

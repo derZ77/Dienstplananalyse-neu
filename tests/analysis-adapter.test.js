@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { prepareCanonicalScheduleForAnalysis, compareCanonicalSchedules, toCanonicalComparisonDebugJson } from '../js/v2/analysis/analysis-adapter.js';
 import { adaptExcelRowsToCanonicalSchedule } from '../js/v2/excel/excel-canonical-adapter.js';
+import { attachCanonicalValidity } from '../js/v2/schedule/canonical-validity.js';
 
 globalThis.DOMMatrix ||= class DOMMatrix {};
 
@@ -53,7 +54,9 @@ test('Debug-Vergleich ignoriert ausschließlich dokumenttypische Quelleninformat
 test('JES-Excel und JES-PDF liefern für den identischen Dienst dieselbe Analyse-Eingabestruktur', async () => {
   const excel = adaptExcelRowsToCanonicalSchedule(excelRows, { sheetName: 'Dienstübersicht' });
   const bytes = new Uint8Array(await readFile(FIXTURES.jesSchedulePdf));
-  const pdf = buildCanonicalSchedule(mapPdfDocumentToSchedule(normalizePdfLayoutDocument(await extractPdfLayoutDocument(bytes))));
+  const pdf = attachCanonicalValidity(buildCanonicalSchedule(mapPdfDocumentToSchedule(normalizePdfLayoutDocument(await extractPdfLayoutDocument(bytes)))), {
+    headerText: excelRows[0][0]
+  });
   const pdfService751 = pdf.services.find(service => service.serviceNumber === '751');
   const pdf751 = {
     ...pdf,

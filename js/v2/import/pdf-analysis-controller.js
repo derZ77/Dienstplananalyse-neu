@@ -23,6 +23,7 @@ import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js';
 import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js';
 import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
 import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js';
+import { attachCanonicalValidity } from '../schedule/canonical-validity.js';
 
 const DETECTION_PAGES = 2;
 
@@ -68,7 +69,10 @@ export async function analyzePdfImport(file) {
 
   const scheduleDocument = mapPdfDocumentToSchedule(normalizePdfLayoutDocument(layout));
   const hardenedSchedule = buildHardenedCanonicalSchedule(scheduleDocument, { profileId: detection.profile.id });
-  const canonicalSchedule = attachRecognizedInterruptions(hardenedSchedule);
+  const canonicalSchedule = attachCanonicalValidity(attachRecognizedInterruptions(hardenedSchedule), {
+    headerText: detection.title,
+    fileName: file?.name || ''
+  });
   return { detection, canonicalSchedule };
 }
 

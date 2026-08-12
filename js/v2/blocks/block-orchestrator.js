@@ -19,7 +19,6 @@ const MIN_NORMAL_PAUSE_MINUTES = 30;
 const MAX_NORMAL_PAUSE_MINUTES = 120;
 const MIN_WORK_BEFORE_PAUSE_MINUTES = 210;
 const MAX_WORK_BEFORE_PAUSE_MINUTES = 270;
-const WEEKDAY_TIMEFRAMES = new Set(['Mo–Fr Schule', 'Mo–Fr Ferien']);
 const text = value => String(value ?? '').trim();
 const number = value => Number.parseInt(value, 10);
 const ordered = values => [...values].sort((left, right) => number(left) - number(right));
@@ -60,7 +59,7 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
 }
 
 function renderPaidTimeBvAssessment(canonicalSchedule, legacy) {
-  if (!WEEKDAY_TIMEFRAMES.has(legacy.plan.timeframe)) {
+  if (canonicalSchedule?.validity?.dayType !== 'mo_fr') {
     return [
       'BV-Bewertung:',
       'Nicht anwendbar: Der vorhandene Planzeitraum ist nicht eindeutig als Montag bis Freitag erkannt.'

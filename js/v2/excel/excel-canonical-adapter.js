@@ -1,4 +1,5 @@
 import { attachCircuitIdentities } from '../identity/identity-normalization.js';
+import { attachCanonicalValidity } from '../schedule/canonical-validity.js';
 
 /**
  * Converts the row matrix already produced by SheetJS in the legacy import
@@ -39,7 +40,18 @@ export function adaptExcelRowsToCanonicalSchedule(rows, options = {}) {
   };
   // WP24: enrich the finished CanonicalSchedule with RouteIdentity/ServiceIdentity
   // exactly once, at the point the schedule is complete. Additive only.
-  return attachCircuitIdentities(schedule);
+  return attachCanonicalValidity(attachCircuitIdentities(schedule), {
+    headerText: workbookHeaderText(rows),
+    documentMetadata: options.documentMetadata,
+    fileName: options.fileName || ''
+  });
+}
+
+function workbookHeaderText(rows) {
+  return rows.slice(0, 12)
+    .filter(Array.isArray)
+    .map(row => row.map(normalized).filter(Boolean).join(' '))
+    .join(' ');
 }
 
 export function detectExcelLayout(rows, forcedLayout) {

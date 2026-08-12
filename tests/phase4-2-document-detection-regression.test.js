@@ -162,7 +162,7 @@ test('G: the CanonicalSchedule contract is unchanged', async (t) => {
   if (!(await present(JNV_PDF))) return t.skip('JNV reference plan not present');
   const { canonicalSchedule } = await analyzePdfImport(fileLike(new Uint8Array(await readFile(JNV_PDF))));
   assert.deepEqual(Object.keys(canonicalSchedule),
-    ['type', 'document', 'services', 'activities', 'interruptions', 'warnings', 'metadata', 'hardened']);
+    ['type', 'document', 'services', 'activities', 'interruptions', 'warnings', 'metadata', 'hardened', 'validity']);
   assert.deepEqual(Object.keys(canonicalSchedule.services[0]),
     ['id', 'serviceNumber', 'begin', 'end', 'paidTime', 'activities', 'interruptions',
       'originalText', 'boundingBox', 'source']);
