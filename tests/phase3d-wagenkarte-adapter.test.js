@@ -27,16 +27,17 @@ test('the recognition result shape is stable and counts Dienst sheets', () => {
   assert.equal(typeof r.data.fullAnalysisAvailable, 'boolean');
 });
 
-test('the adapter defers the deep analysis to the inline engine (documented boundary)', () => {
+test('the adapter defers Block-7 calculation and rendering (documented boundary)', () => {
   const r = analyzeWagenkarteWorkbook(wb([dienstSheet('A', '100')]));
   assert.equal(r.data.fullAnalysisAvailable, false);
   assert.equal(r.limitation, 'WAGENKARTE_FULL_ANALYSIS_IN_INLINE_ENGINE');
 });
 
-test('the adapter produces neither an Umlauftafel nor a Legacy schedule', () => {
+test('the adapter produces a Wagenkarten-Spezialvertrag, neither an Umlauftafel nor a Legacy schedule', () => {
   const r = analyzeWagenkarteWorkbook(wb([dienstSheet('A', '100')]));
   assert.ok(!('mode' in r.data));
-  assert.ok(!('type' in r.data)); // no CanonicalSchedule
+  assert.equal(r.data.type, 'VehicleCardSchedule');
+  assert.notEqual(r.data.type, 'CanonicalSchedule');
 });
 
 test('a workbook without the Wagenkarte signature yields a controlled warning', () => {

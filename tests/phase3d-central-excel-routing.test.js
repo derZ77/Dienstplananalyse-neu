@@ -59,15 +59,18 @@ test('exact Umlauftafel (tram) → only the Umlauftafel loader', async (t) => {
   assert.equal(a.importResult.documentType, 'umlaufkarte');
 });
 
-test('exact Wagenkarte → only the Wagenkarte adapter (no Umlauftafel, no Legacy)', async (t) => {
+test('exact Wagenkarte → Wagenkartenvertrag only (no Umlauftafel, no Legacy)', async (t) => {
   if (!xlsxReady) return t.skip('XLSX not available');
   const bytes = buildXlsx([{ name: 'Dienst 100', aoa: [['', 'Dienst-Nr.:', '', '100'], ['', '', '', '']] }]);
-  const a = await handleImport(fileLike(bytes, 'wagen.xlsx'), statusEl());
+  const a = await handleImport(fileLike(bytes, 'wagen_MoFr_Schule.xlsx'), statusEl());
   assert.equal(a.classification.type, 'wagenkarte');
   assert.equal(a.document, null, 'no Umlauftafel document');
   assert.equal(a.importResult.documentType, 'wagenkarte');
   assert.equal(a.importResult.data.recognized, true);
-  assert.ok(!('type' in a.importResult.data)); // not a CanonicalSchedule
+  assert.equal(a.importResult.data.type, 'VehicleCardSchedule');
+  assert.notEqual(a.importResult.data.type, 'CanonicalSchedule');
+  assert.equal(a.importResult.data.source.fileName, 'wagen_MoFr_Schule.xlsx');
+  assert.equal(a.importResult.data.validity.dayType, 'mo_fr');
 });
 
 test('exact Legacy-Excel → only the Legacy adapter (existing CanonicalSchedule contract)', async (t) => {

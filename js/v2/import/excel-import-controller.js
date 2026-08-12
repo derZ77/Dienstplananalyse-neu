@@ -78,7 +78,13 @@ export async function analyzeExcelImport(file) {
     return { classification, document: result.document, result, importResult, warnings: result.warnings };
   }
   if (classification.type === 'wagenkarte' && isExact) {
-    const importResult = runFachAdapter(() => analyzeWagenkarteWorkbook(workbook), 'WAGENKARTE_IMPORT_FAILED');
+    // The Wagenkarte is a JES companion document. Preserve its file-derived
+    // validity evidence in the dedicated vehicle-card contract; it does not
+    // replace the primary CanonicalSchedule.
+    const importResult = runFachAdapter(() => analyzeWagenkarteWorkbook(workbook, {
+      sourceName: file.name || null,
+      organization: 'JES'
+    }), 'WAGENKARTE_IMPORT_FAILED');
     return { classification, document: null, result: null, importResult, warnings: importResult.warnings };
   }
   if (classification.type === 'legacy_excel_schedule' && isExact) {
