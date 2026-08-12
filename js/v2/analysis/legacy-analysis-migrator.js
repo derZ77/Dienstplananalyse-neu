@@ -8,6 +8,7 @@ const RESERVE_SERVICE_NUMBERS = new Set([
   2301, 2302, 2401, 2402
 ]);
 const EQUIVALENT_LOCATIONS = new Set(['BBU', 'BUP', 'BBN', 'NSL']);
+const MIN_SPLIT_INTERRUPTION_MINUTES = 120;
 
 /**
  * CanonicalSchedule implementation of the legacy tabular checks 1–8.
@@ -18,7 +19,7 @@ export function analyzeMigratedLegacyChecks(canonicalSchedule) {
   const schedule = prepareCanonicalScheduleForAnalysis(canonicalSchedule);
   const services = schedule.services.slice().sort(compareServiceNumber);
   const plan = detectLegacyPlan(services);
-  const sharedServices = findSharedServices(services);
+  const sharedServices = findSharedServices(services, schedule.interruptions);
   const reserveServices = services.filter(service => RESERVE_SERVICE_NUMBERS.has(toNumber(service.serviceNumber)));
   const uniqueServiceNumbers = new Set(
     services
@@ -81,9 +82,15 @@ function timeframeForRange(ids, start) {
   return null;
 }
 
-function findSharedServices(services) {
+function findSharedServices(services, interruptions = []) {
+  const servicesWithExplicitSplit = new Set(
+    (interruptions || [])
+      .filter(isLongServiceInterruption)
+      .map(interruption => interruption.serviceId)
+      .filter(Boolean)
+  );
   return services
-    .filter(service => isLegacySharedService(toNumber(service.serviceNumber)))
+    .filter(service => servicesWithExplicitSplit.has(service.id) || isLegacySharedService(toNumber(service.serviceNumber)))
     .map(service => {
       const duration = durationBetween(service.begin, service.end);
       return {
@@ -93,6 +100,19 @@ function findSharedServices(services) {
         exceedsTwelveHours: duration.minutes !== null && duration.minutes > 720
       };
     });
+}
+
+/**
+ * A structured service interruption longer than two hours is the same existing
+ * split-duty fact that the legacy number-range fallback represented for older
+ * plans. The fallback remains intact; this merely lets every import source
+ * that already supplies the common CanonicalSchedule fact use it.
+ */
+function isLongServiceInterruption(interruption) {
+  return interruption?.type === 'serviceInterruption' &&
+    interruption?.kind === 'interruption' &&
+    Number.isInteger(interruption.durationMinutes) &&
+    interruption.durationMinutes > MIN_SPLIT_INTERRUPTION_MINUTES;
 }
 
 function findDifferentLocationServices(services) {

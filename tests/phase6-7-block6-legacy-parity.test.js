@@ -61,7 +61,7 @@ test('Phase 6.7: Block 6 stellt Einzelteil, kombinierten Teil und 1/6-Hinweis wi
   assert.match(output, /Hinweis: Bitte Fahrtafel prüfen ob 1\/6 Dienst und Standzeiten ausreichen\./);
 });
 
-test('Phase 6.7: echte JES-Excel- und PDF-Referenz erzeugen denselben Block-6-Text', async () => {
+test('Phase 6.7: echte JES-Excel- und PDF-Referenz behalten Block 6; PDF darf strukturierte Teilungen ergänzen', async () => {
   installXlsx();
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { readWorkbookSheets } = await import('../js/v2/umlauftafel/xlsx-sheet-reader.js');
@@ -70,7 +70,7 @@ test('Phase 6.7: echte JES-Excel- und PDF-Referenz erzeugen denselben Block-6-Te
   const excel = adaptExcelRowsToCanonicalSchedule(workbook.sheets[0].rows, { sheetName: workbook.sheets[0].name });
   const pdf = (await analyzePdfImport(fileLike(FIXTURES.jesSchedulePdf))).canonicalSchedule;
 
-  assert.equal(createOriginalBlockViewModel(excel).segmentText, createOriginalBlockViewModel(pdf).segmentText);
+  assert.match(createOriginalBlockViewModel(excel).segmentText, /Dienstteilstücke >04:30h/);
   assert.match(createOriginalBlockViewModel(pdf).segmentText, /Dienstteilstücke >04:30h/);
 });
 

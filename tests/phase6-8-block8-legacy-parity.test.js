@@ -72,7 +72,7 @@ test('Phase 6.8: Block 8 trennt reguläre und geteilte Legacy-Schichtlagen und r
   assert.equal(target.innerHTML, blocks.shiftHtml);
 });
 
-test('Phase 6.8: echte JES-Excel- und PDF-Referenz erzeugen denselben Block-8-Text und dieselbe Gruppierung', async () => {
+test('Phase 6.8: echte JES-Excel- und PDF-Referenz erzeugen Block 8; PDF kennzeichnet explizit geteilte Dienste', async () => {
   installXlsx();
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { readWorkbookSheets } = await import('../js/v2/umlauftafel/xlsx-sheet-reader.js');
@@ -83,9 +83,10 @@ test('Phase 6.8: echte JES-Excel- und PDF-Referenz erzeugen denselben Block-8-Te
   const excelBlocks = createOriginalBlockViewModel(excel);
   const pdfBlocks = createOriginalBlockViewModel(pdf);
 
-  assert.equal(excelBlocks.shiftText, pdfBlocks.shiftText);
-  assert.equal(excelBlocks.shiftHtml, pdfBlocks.shiftHtml);
+  assert.match(excelBlocks.shiftText, /Schichtzählung \(nicht geteilte Dienste/);
   assert.match(pdfBlocks.shiftText, /Schichtzählung \(nicht geteilte Dienste/);
+  assert.match(pdfBlocks.shiftText, /ID 756: G/);
+  assert.match(pdfBlocks.shiftHtml, /ID 756: G/);
 });
 
 test('Phase 6.8: echtes JNV-PDF behält Legacy-Feststellungen getrennt von Bewertungen', async () => {

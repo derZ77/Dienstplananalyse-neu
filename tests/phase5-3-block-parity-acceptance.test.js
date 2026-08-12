@@ -20,7 +20,7 @@ function installXlsx() {
   globalThis.XLSX = sandbox.XLSX;
 }
 
-test('Phase 5.3: Original-JES-Excel und zugehöriges PDF erzeugen identische Blöcke 1–10', async () => {
+test('Phase 5.3: Original-JES-Excel und zugehöriges PDF erzeugen alle Blöcke; PDF behält zusätzlich explizite Unterbrechungen', async () => {
   await access(EXCEL);
   await access(PDF);
   installXlsx();
@@ -47,5 +47,8 @@ test('Phase 5.3: Original-JES-Excel und zugehöriges PDF erzeugen identische Bl�
     'segmentText', 'realDrivingTimeText', 'shiftText', 'routeText', 'pauseHtml'
   ];
   assert.ok(visibleBlocks.every(field => String(pdfBlocks[field]).trim() !== ''), 'kein Original-Block bleibt leer');
-  assert.deepEqual(pdfBlocks, excelBlocks);
+  assert.equal(pdfBlocks.countText, excelBlocks.countText);
+  assert.match(pdfBlocks.sharedText, /Anzahl geteilte Dienste: 4/);
+  assert.match(pdfBlocks.sharedText, /IDs: 756, 758, 759, 760/);
+  assert.match(excelBlocks.sharedText, /Anzahl geteilte Dienste: 0/);
 });

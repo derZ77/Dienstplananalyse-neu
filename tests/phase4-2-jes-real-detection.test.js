@@ -119,13 +119,14 @@ test('C: the duty-level time fields are complete', async (t) => {
   assert.equal(filled(canonicalSchedule.activities, a => a.arrivalTime?.value), 127);
 });
 
-test('C: no JNV hardening is attached to a JES document', async (t) => {
+test('C: JES keeps JNV hardening disabled and promotes only its already recognised interruption rows', async (t) => {
   if (!(await present(JES_PDF))) return t.skip('JES reference plan not present');
   const { canonicalSchedule } = await analyzePdfImport(fileLike(await jesBytes(), 'plan.pdf'));
 
   assert.equal('hardened' in canonicalSchedule, false, 'hardening stays bound to the JNV profile');
   assert.deepEqual(canonicalSchedule.warnings, [], 'the base builder raises no warning');
-  assert.deepEqual(canonicalSchedule.interruptions, [], 'and produces no top-level interruptions');
+  assert.equal(canonicalSchedule.interruptions.length, 4, 'recognised Dienstunterbrechungen use the common CanonicalSchedule contract');
+  assert.ok(canonicalSchedule.interruptions.every(entry => entry.type === 'serviceInterruption' && entry.kind === 'interruption'));
 });
 
 test('C: the parser itself was not changed for this phase', async () => {

@@ -22,6 +22,7 @@ import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js';
 import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js';
 import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js';
 import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
+import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js';
 
 const DETECTION_PAGES = 2;
 
@@ -72,18 +73,22 @@ export async function analyzePdfImport(file) {
 }
 
 /**
- * Promotes already-recognised PDF interruptions into the source-neutral
- * CanonicalSchedule contract. The JNV hardening remains the recogniser; this
- * seam only makes its established data available to shared consumers.
+ * Promotes already-recognised PDF interruption rows into the source-neutral
+ * CanonicalSchedule contract. The row-type contract is profile-neutral: JNV
+ * continues to retain its additive hardening view, while every supported PDF
+ * can expose the same already parsed interruption fact to shared consumers.
  */
 function attachRecognizedInterruptions(schedule) {
-  const recognized = schedule?.hardened?.applied ? schedule.hardened.interruptions : [];
-  if (!Array.isArray(recognized) || !recognized.length) return schedule;
+  const recognized = [
+    ...recognizedActivityInterruptions(schedule),
+    ...(schedule?.hardened?.applied ? schedule.hardened.interruptions : [])
+  ];
+  if (!recognized.length) return schedule;
   return attachCanonicalInterruptions(schedule, recognized
     .filter(interruption => interruption.valid)
-    .map((interruption, index) => createCanonicalInterruption({
+    .map(interruption => createCanonicalInterruption({
       ...interruption,
-      id: `pdf-interruption:${interruption.serviceId}:${index + 1}`,
+      id: canonicalInterruptionId(interruption),
       type: 'serviceInterruption',
       kind: CANONICAL_INTERRUPTION_KINDS.INTERRUPTION,
       start: clock(interruption.startTime, interruption.startMinutes),
@@ -93,6 +98,28 @@ function attachRecognizedInterruptions(schedule) {
       serviceId: interruption.serviceId,
       serviceNumber: interruption.serviceNumber
     })));
+}
+
+function recognizedActivityInterruptions(schedule) {
+  return (schedule?.services || []).flatMap(service =>
+    (service.activities || []).flatMap(activity => {
+      const classified = classifyActivityRow(activity);
+      if (classified.type !== ROW_TYPES.SERVICE_INTERRUPTION || !classified.interruption?.valid) return [];
+      return [{
+        ...classified.interruption,
+        serviceId: service.id,
+        serviceNumber: service.serviceNumber,
+        source: activity.source ?? null,
+        activityId: activity.id ?? null
+      }];
+    }));
+}
+
+function canonicalInterruptionId(interruption) {
+  const serviceId = interruption.serviceId ?? 'unknown-service';
+  const start = interruption.startTime ?? interruption.start?.value ?? '';
+  const end = interruption.endTime ?? interruption.end?.value ?? '';
+  return `pdf-interruption:${serviceId}:${start}:${end}`;
 }
 
 function clock(value, minutes) {

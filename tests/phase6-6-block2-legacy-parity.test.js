@@ -74,7 +74,7 @@ test('Phase 6.6: Block 2 stellt die tabellarische Legacy-Schichtdauer und 12-Stu
   assert.match(output, /ID 2140 \(13:01\)/);
 });
 
-test('Phase 6.6: echte JES-Excel- und PDF-Referenz verwenden denselben Block-2-Pfad', async () => {
+test('Phase 6.6: JES Excel und PDF bleiben im gemeinsamen Block-2-Pfad; PDF kann zusätzliche strukturierte Unterbrechungen liefern', async () => {
   installXlsx();
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { readWorkbookSheets } = await import('../js/v2/umlauftafel/xlsx-sheet-reader.js');
@@ -83,8 +83,9 @@ test('Phase 6.6: echte JES-Excel- und PDF-Referenz verwenden denselben Block-2-P
   const excel = adaptExcelRowsToCanonicalSchedule(workbook.sheets[0].rows, { sheetName: workbook.sheets[0].name });
   const pdf = (await analyzePdfImport(fileLike(FIXTURES.jesSchedulePdf, 'application/pdf'))).canonicalSchedule;
 
-  assert.equal(createOriginalBlockViewModel(excel).sharedText, createOriginalBlockViewModel(pdf).sharedText);
-  assert.match(createOriginalBlockViewModel(pdf).sharedText, /Anzahl geteilte Dienste: 0/);
+  assert.match(createOriginalBlockViewModel(excel).sharedText, /Anzahl geteilte Dienste: 0/);
+  assert.match(createOriginalBlockViewModel(pdf).sharedText, /Anzahl geteilte Dienste: 4/);
+  assert.match(createOriginalBlockViewModel(pdf).sharedText, /IDs: 756, 758, 759, 760/);
 });
 
 test('Phase 6.6: echtes JNV-PDF zeigt jede geteilte Canonical-Dienstgrenze mit unverändertem Wert', async () => {

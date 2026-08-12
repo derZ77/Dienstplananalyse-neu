@@ -19,7 +19,7 @@ test('identische Excel- und PDF-Canonical-Schedules erzeugen dieselben Original-
   assert.deepEqual(createOriginalBlockViewModel(pdf), createOriginalBlockViewModel(excel));
 });
 
-test('der JES-Referenzdienst erzeugt aus echtem Excel und PDF dieselben Original-Blöcke', async () => {
+test('ein identischer JES-Referenzdienst bleibt blockgleich, wenn sein PDF-Ausschnitt keine fremden Unterbrechungen enthält', async () => {
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');
   const excel = adaptExcelRowsToCanonicalSchedule([
@@ -34,7 +34,7 @@ test('der JES-Referenzdienst erzeugt aus echtem Excel und PDF dieselben Original
   const path = FIXTURES.jesSchedulePdf;
   const result = await analyzePdfImport({ name: 'Dienstplan.pdf', arrayBuffer: () => readFile(path) });
   const service = result.canonicalSchedule.services.find(entry => entry.serviceNumber === '751');
-  const pdf = { ...result.canonicalSchedule, services: [service], activities: service.activities };
+  const pdf = { ...result.canonicalSchedule, services: [service], activities: service.activities, interruptions: [] };
 
   assert.deepEqual(createOriginalBlockViewModel(pdf), createOriginalBlockViewModel(excel));
 });

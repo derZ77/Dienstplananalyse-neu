@@ -61,7 +61,7 @@ test('Phase 6.7b: Block 6 bewahrt die Überschreitung und zeigt vorhandene 1/6- 
   assert.match(output, /Keine vorhandene Ausnahmeinformation/);
 });
 
-test('Phase 6.7b: echte JES-Excel- und PDF-Referenz behalten ohne CheckReport denselben Legacy-Block 6', async () => {
+test('Phase 6.7b: echte JES-Excel- und PDF-Referenz behalten ohne CheckReport die Legacy-Block-6-Feststellung', async () => {
   installXlsx();
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { readWorkbookSheets } = await import('../js/v2/umlauftafel/xlsx-sheet-reader.js');
@@ -70,8 +70,9 @@ test('Phase 6.7b: echte JES-Excel- und PDF-Referenz behalten ohne CheckReport de
   const excel = adaptExcelRowsToCanonicalSchedule(workbook.sheets[0].rows, { sheetName: workbook.sheets[0].name });
   const pdf = (await analyzePdfImport(fileLike(FIXTURES.jesSchedulePdf))).canonicalSchedule;
 
-  assert.equal(createOriginalBlockViewModel(excel).segmentText, createOriginalBlockViewModel(pdf).segmentText);
-  assert.doesNotMatch(createOriginalBlockViewModel(pdf).segmentText, /Bewertung:/);
+  assert.match(createOriginalBlockViewModel(excel).segmentText, /Dienstteilstücke >04:30h/);
+  assert.match(createOriginalBlockViewModel(pdf).segmentText, /Dienstteilstücke >04:30h/);
+  assert.match(createOriginalBlockViewModel(pdf).segmentText, /ID 758:[\s\S]*Bewertung:[\s\S]*Geteilter Dienst erkannt/);
 });
 
 test('Phase 6.7b: echtes JNV-PDF ergänzt einen geteilten Dienst ohne eine 1/6-Bewertung zu erfinden', async () => {

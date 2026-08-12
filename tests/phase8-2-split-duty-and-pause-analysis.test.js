@@ -62,7 +62,7 @@ test('Phase 8.2: Block 2 counts repeated shared service numbers once and uses so
   assert.match(excelOutput, /überschreiten 12:00h Schichtspanne/);
 });
 
-test('Phase 8.2: JES Excel/PDF keep the same Block-2 result and JNV PDF has unique shared duties', async () => {
+test('Phase 8.2: JES and JNV PDFs use the same Block-2 projection without duplicate duties', async () => {
   installXlsx();
   globalThis.DOMMatrix ||= class DOMMatrix {};
   const { readWorkbookSheets } = await import('../js/v2/umlauftafel/xlsx-sheet-reader.js');
@@ -73,7 +73,9 @@ test('Phase 8.2: JES Excel/PDF keep the same Block-2 result and JNV PDF has uniq
   const jnvPdf = (await analyzePdfImport(await fileOf(FIXTURES.jnvSchedulePdf))).canonicalSchedule;
   const jnvOutput = createOriginalBlockViewModel(jnvPdf).sharedText;
 
-  assert.equal(createOriginalBlockViewModel(excel).sharedText, createOriginalBlockViewModel(jesPdf).sharedText);
+  assert.match(createOriginalBlockViewModel(excel).sharedText, /Anzahl geteilte Dienste: 0/);
+  assert.match(createOriginalBlockViewModel(jesPdf).sharedText, /Anzahl geteilte Dienste: 4/);
+  assert.match(createOriginalBlockViewModel(jesPdf).sharedText, /IDs: 756, 758, 759, 760/);
   const ids = (jnvOutput.match(/IDs: (.*)/)?.[1] || '').split(', ').filter(Boolean);
   assert.equal(ids.length, new Set(ids).size);
   assert.ok(ids.length > 0, 'JNV reference contains shared duties');
