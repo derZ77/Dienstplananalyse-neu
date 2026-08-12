@@ -55,13 +55,28 @@ export function runJnvStructuralMatching({ bundle, primaryImport, companionImpor
     const title = typeof primaryImport?.detection?.title === 'string' && primaryImport.detection.title
       ? primaryImport.detection.title
       : (typeof metadata.title === 'string' ? metadata.title : null);
+    const canonicalValidity = canonicalSchedule.validity && typeof canonicalSchedule.validity === 'object'
+      ? canonicalSchedule.validity
+      : null;
+    // The primary document remains authoritative. A user-selected UNKNOWN must
+    // not silently fall back to a companion/title-derived weekday for matching.
+    if (canonicalValidity?.dayTypeSource === 'MANUAL' && canonicalValidity.dayType === 'unknown') {
+      return blocked('VALIDITY_NOT_EXACT', {
+        validity: {
+          serviceRegime: canonicalValidity.serviceRegime ?? 'unknown',
+          dayType: 'unknown',
+          confidence: 'unknown'
+        }
+      });
+    }
     const validity = resolveValidity({
       canonicalSchedule,
       hardened: canonicalSchedule.hardened ?? null,
       detection: primaryImport?.detection ?? null,
       profile: primaryImport?.detection?.profile ?? null,
       sourceName: typeof metadata.sourceName === 'string' ? metadata.sourceName : null,
-      metadata: { title }
+      metadata: { title },
+      manualDayType: canonicalValidity?.dayTypeSource === 'MANUAL' ? canonicalValidity.dayType : null
     });
     const validitySummary = { serviceRegime: validity.serviceRegime, dayType: validity.dayType, confidence: validity.confidence };
 

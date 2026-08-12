@@ -8,7 +8,7 @@ import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
 import { clearOriginalBlocks, renderOriginalBlocks } from './blocks/block-renderer.js';
 import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
 import { initializeAnalysisSearch } from './ui/analysis-search-controller.js';
-import { formatCanonicalValidity } from './schedule/canonical-validity.js';
+import { formatCanonicalValidity, formatValiditySource } from './schedule/canonical-validity.js';
 
 // Phase 3F: one memory-only session holds the primary (captured from the unchanged
 // single import) and an optional companion. No storage, no network, no matching.
@@ -38,6 +38,9 @@ const matchingStatusEl = document.getElementById('match-result');
 const ruleAnalysisStatusEl = document.getElementById('rule-analysis-result');
 const primaryStatusEl = document.getElementById('pdf-import-result');
 const fileResultEl = document.getElementById('file-result');
+const validityControlsEl = document.getElementById('schedule-validity-controls');
+const dayTypeSelectEl = document.getElementById('schedule-daytype-select');
+const validitySourceEl = document.getElementById('schedule-validity-source');
 
 function setStatus(element, message) {
   if (!element) return;
@@ -66,6 +69,7 @@ function render(state) {
   setStatus(matchingStatusEl, state.matchingStatus);
   setStatus(ruleAnalysisStatusEl, state.ruleAnalysisStatus);
   const canonicalSchedule = state?.primaryImport?.canonicalSchedule;
+  renderValidityControls(canonicalSchedule);
   if (canonicalSchedule?.type === 'CanonicalSchedule') {
     renderOriginalBlocks(createOriginalBlockViewModel(canonicalSchedule, { checkReport: state.checkReport }));
   } else if (!state?.primaryImport) {
@@ -85,6 +89,23 @@ function render(state) {
   return state;
 }
 
+function renderValidityControls(canonicalSchedule) {
+  const validity = canonicalSchedule?.validity;
+  if (!validityControlsEl || !dayTypeSelectEl || !validitySourceEl) return;
+  if (!validity || canonicalSchedule?.type !== 'CanonicalSchedule') {
+    validityControlsEl.hidden = true;
+    return;
+  }
+  validityControlsEl.hidden = false;
+  const manual = validity.dayTypeSource === 'MANUAL';
+  dayTypeSelectEl.value = validity.dayType;
+  const requirement = validity.dayType === 'unknown' && !manual
+    ? ' Die Gültigkeit konnte nicht eindeutig erkannt werden. Bitte Tagesart auswählen.'
+    : '';
+  validitySourceEl.textContent = `Gültigkeit: ${formatCanonicalValidity(validity)}. Quelle: ${formatValiditySource(validity.dayTypeSource)}.${requirement}`;
+  validityControlsEl.classList.toggle('warning', validity.dayType === 'unknown' && !manual);
+}
+
 // The productive rule analysis runs through the session (which delegates to the orchestrator and
 // the existing check runner); the UI never touches the rule logic directly. It re-renders once the
 // asynchronous check completes.
@@ -100,6 +121,13 @@ initializePdfImport({
   statusElement: primaryStatusEl,
   onResult: (result, file) => renderAndAnalyze(session.setPrimaryResult(result, file))
 });
+
+if (dayTypeSelectEl) {
+  dayTypeSelectEl.addEventListener('change', () => {
+    const value = dayTypeSelectEl.value;
+    renderAndAnalyze(session.setManualDayType(value));
+  });
+}
 
 const companionInput = document.getElementById('companion-file-input');
 if (companionInput) {

@@ -20,6 +20,7 @@ import { analyzeExcelImport } from './excel-import-controller.js';
 import { createBundleFromImports } from './analysis-bundle-controller.js';
 import { runJnvStructuralMatching } from '../matching/jnv-matching-controller.js';
 import { runJesBaseAnalysis, runJnvBaseAnalysis, runJnvRuleAnalysis } from '../analysis/jnv-rule-analysis-controller.js';
+import { withManualCanonicalDayType } from '../schedule/canonical-validity.js';
 
 const COMPANION_TYPES = new Set(['wagenkarte', 'umlaufkarte']);
 
@@ -121,7 +122,7 @@ export function createMultiDocumentSession({
   generateBundleId = defaultBundleId,
   generateTimestamp = defaultTimestamp
 } = {}) {
-  const state = { primaryImport: null, companionImport: null, primaryFileName: null, companionFileName: null, bundle: null, matching: null, companionStatus: '', combinationStatus: '', matchingStatus: '', ruleAnalysis: null, checkReport: null, ruleAnalysisStatus: '' };
+  const state = { primaryImport: null, automaticCanonicalSchedule: null, companionImport: null, primaryFileName: null, companionFileName: null, bundle: null, matching: null, companionStatus: '', combinationStatus: '', matchingStatus: '', ruleAnalysis: null, checkReport: null, ruleAnalysisStatus: '' };
 
   // A monotonically increasing generation identifies the current match state. Each rebuild bumps
   // it; `analyzeRules()` runs at most once per generation and discards stale async results.
@@ -177,10 +178,34 @@ export function createMultiDocumentSession({
 
   /** Store the primary result captured from the unchanged single-import path. */
   function setPrimaryResult(result, file) {
-    if (!file) { state.primaryImport = null; state.primaryFileName = null; return rebuild(); } // deselected → clear
+    if (!file) { state.primaryImport = null; state.automaticCanonicalSchedule = null; state.primaryFileName = null; return rebuild(); } // deselected → clear
     if (result == null) return snapshot();                                // failed/unsupported → keep previous valid primary
     state.primaryImport = normalizePrimaryImport(result);
+    state.automaticCanonicalSchedule = state.primaryImport?.canonicalSchedule?.type === 'CanonicalSchedule'
+      ? state.primaryImport.canonicalSchedule
+      : null;
     state.primaryFileName = typeof file.name === 'string' ? file.name : null;
+    return rebuild();
+  }
+
+  /**
+   * Replaces only the primary schedule's active day type with an explicit user
+   * choice. Rebuild invalidates every dependent analysis result; callers then
+   * use the existing `analyzeRules()` path. A new file always replaces this
+   * copied schedule and therefore cannot inherit an old override.
+   */
+  function setManualDayType(dayType) {
+    const canonicalSchedule = state.primaryImport?.canonicalSchedule;
+    if (!canonicalSchedule) return snapshot();
+    if (dayType === 'automatic') {
+      if (!state.automaticCanonicalSchedule) return snapshot();
+      state.primaryImport = { ...state.primaryImport, canonicalSchedule: state.automaticCanonicalSchedule };
+      return rebuild();
+    }
+    state.primaryImport = {
+      ...state.primaryImport,
+      canonicalSchedule: withManualCanonicalDayType(canonicalSchedule, dayType)
+    };
     return rebuild();
   }
 
@@ -205,8 +230,8 @@ export function createMultiDocumentSession({
     return snapshot();                                                    // reject → keep previous valid companion
   }
 
-  function clearPrimary() { state.primaryImport = null; return rebuild(); }
+  function clearPrimary() { state.primaryImport = null; state.automaticCanonicalSchedule = null; return rebuild(); }
   function clearCompanion() { state.companionImport = null; state.companionStatus = ''; return rebuild(); }
 
-  return { setPrimaryResult, setCompanionFile, clearPrimary, clearCompanion, getState: snapshot, analyzeRules };
+  return { setPrimaryResult, setManualDayType, setCompanionFile, clearPrimary, clearCompanion, getState: snapshot, analyzeRules };
 }

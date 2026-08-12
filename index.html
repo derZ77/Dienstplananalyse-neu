@@ -595,6 +595,17 @@
 			<input id="file-input" type="file" accept=".xlsx,.xls,.pdf,application/pdf" />
 			<div id="file-result" class="result" aria-live="polite">Noch keine Datei ausgewählt.</div>
 			<div id="pdf-import-result" class="result" hidden aria-live="polite"></div>
+			<div id="schedule-validity-controls" class="result" hidden aria-live="polite">
+				<label for="schedule-daytype-select">Gültigkeit des Dienstplans</label>
+				<select id="schedule-daytype-select" aria-describedby="schedule-validity-source">
+					<option value="automatic">Automatisch erkannt</option>
+					<option value="mo_fr">Montag–Freitag</option>
+					<option value="saturday">Samstag</option>
+					<option value="sunday">Sonntag</option>
+					<option value="unknown">Unbekannt</option>
+				</select>
+				<div id="schedule-validity-source"></div>
+			</div>
 			<!-- Phase 4.5: the local Dienstplan export. Filled by pdf-import-bootstrap.js and hidden
 			     unless a JNV-/JES-Dienstplan-PDF was imported successfully and is exportable. -->
 			<div id="dienstplan-export"></div>

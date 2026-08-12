@@ -8,7 +8,7 @@
 
 export const CANONICAL_DAY_TYPES = Object.freeze(['mo_fr', 'saturday', 'sunday', 'unknown']);
 export const CANONICAL_SERVICE_REGIMES = Object.freeze(['school', 'holidays', 'unknown']);
-export const VALIDITY_SOURCES = Object.freeze(['HEADER', 'DOCUMENT_METADATA', 'FILENAME', 'UNKNOWN']);
+export const VALIDITY_SOURCES = Object.freeze(['HEADER', 'DOCUMENT_METADATA', 'FILENAME', 'MANUAL', 'UNKNOWN']);
 
 const text = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const none = () => ({ value: 'unknown', source: 'UNKNOWN' });
@@ -104,8 +104,28 @@ export function attachCanonicalValidity(schedule, evidence = {}) {
   };
 }
 
+/**
+ * Applies an explicit user choice to an already resolved schedule validity.
+ * Only day type and its provenance change; school/holiday and valid-from facts
+ * remain exactly as imported. The input schedule is never mutated.
+ */
+export function withManualCanonicalDayType(schedule, dayType) {
+  if (schedule?.type !== 'CanonicalSchedule') throw new TypeError('Expected a CanonicalSchedule.');
+  if (!CANONICAL_DAY_TYPES.includes(dayType)) throw new TypeError('Unsupported canonical day type.');
+  const validity = schedule.validity || resolveCanonicalValidity();
+  return {
+    ...schedule,
+    validity: { ...validity, dayType, dayTypeSource: 'MANUAL' },
+    metadata: { ...schedule.metadata, dayType }
+  };
+}
+
 export function formatCanonicalValidity(validity) {
   const day = { mo_fr: 'Montag–Freitag', saturday: 'Samstag', sunday: 'Sonntag', unknown: 'unbekannt' }[validity?.dayType] || 'unbekannt';
   const regime = { school: 'Schule', holidays: 'Ferien' }[validity?.serviceRegime] || '';
   return regime ? `${day} (${regime})` : day;
+}
+
+export function formatValiditySource(source) {
+  return ({ HEADER: 'Dokumentkopf', DOCUMENT_METADATA: 'Dokumentmetadaten', FILENAME: 'Dateiname', MANUAL: 'manuell ausgewählt', UNKNOWN: 'unbekannt' })[source] || 'unbekannt';
 }

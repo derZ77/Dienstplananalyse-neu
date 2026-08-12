@@ -57,12 +57,16 @@ function combine(a, b) {
 
 /**
  * @param {{ canonicalSchedule?: object, hardened?: object, profile?: object, detection?: object,
- *           sourceName?: string, metadata?: object }} [input]
+ *           sourceName?: string, metadata?: object, manualDayType?: string }} [input]
  */
 export function resolveJnvScheduleValidity(input = {}) {
-  const { canonicalSchedule = null, hardened = null, sourceName = null, metadata = {} } = input || {};
+  const { canonicalSchedule = null, hardened = null, sourceName = null, metadata = {}, manualDayType = null } = input || {};
   const hard = hardened || canonicalSchedule?.hardened || {};
   const meta = metadata && typeof metadata === 'object' ? metadata : {};
+  // A deliberate UI override is the active day type. It is intentionally kept
+  // separate from automatic evidence so an explicit Saturday choice cannot be
+  // made ambiguous again by a Monday–Friday document title.
+  const manualDayTypeValue = DAY_TYPES.includes(manualDayType) ? manualDayType : null;
 
   const regime = [];
   const dayType = [];
@@ -90,9 +94,12 @@ export function resolveJnvScheduleValidity(input = {}) {
   }
 
   const regimeResult = resolveField(regime);
-  const dayTypeResult = resolveField(dayType);
+  const dayTypeResult = manualDayTypeValue
+    ? { value: manualDayTypeValue, confidence: 'exact', conflict: false }
+    : resolveField(dayType);
 
   const evidence = [...regime, ...dayType].map(c => ({ code: c.code, value: c.value, source: c.source }));
+  if (manualDayTypeValue) evidence.unshift({ code: 'MANUAL_VALIDITY_SIGNAL', value: manualDayTypeValue, source: 'manual' });
   const conflicts = [];
   if (regimeResult.conflict) conflicts.push('CONFLICTING_SERVICE_REGIME');
   if (dayTypeResult.conflict) conflicts.push('CONFLICTING_DAY_TYPE');
