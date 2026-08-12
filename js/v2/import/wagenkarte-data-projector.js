@@ -29,10 +29,10 @@ const ADDITIONAL_TIME_KEYS = Object.freeze({
 });
 
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
-const source = (sheetName, row) => ({ sourceType: 'excel', sheetName, row: row + 1 });
+const source = (sheetName, row, region = null) => ({ sourceType: 'excel', sheetName, row: row + 1, region });
 
 export function isWagenkarteDienstSheet(sheet) {
-  return clean(sheet?.rows?.[0]?.[1]) === WAGENKARTE_HEADER;
+  return (sheet?.rows?.[0] || []).some(value => clean(value) === WAGENKARTE_HEADER);
 }
 
 /**
@@ -44,7 +44,7 @@ export function projectWagenkarteWorkbook(workbook, { sourceName = '', organizat
   const sheets = Array.isArray(workbook?.sheets) ? workbook.sheets : [];
   const dienstSheets = sheets.filter(isWagenkarteDienstSheet);
   const headerText = dienstSheets.map(sheet => rowText(sheet.rows?.[0])).filter(Boolean).join(' ');
-  const validFrom = normalizeValidFrom(dienstSheets[0]?.rows?.[2]?.[3]);
+  const validFrom = normalizeValidFrom(headerValue(dienstSheets[0]?.rows, 'Gültig ab:') ?? dienstSheets[0]?.rows?.[2]?.[3]);
   const validity = resolveCanonicalValidity({
     headerText,
     documentMetadata: validFrom ? { validFrom } : null,
@@ -66,14 +66,14 @@ export function projectWagenkarteWorkbook(workbook, { sourceName = '', organizat
 function projectService(sheet, ordinal, validity) {
   const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
   const sheetName = clean(sheet?.name) || `Dienstblatt ${ordinal + 1}`;
-  const serviceNumber = clean(rows?.[0]?.[3]);
+  const serviceNumber = clean(headerValue(rows, WAGENKARTE_HEADER) ?? rows?.[0]?.[3]);
   const runId = findRunId(rows);
   const serviceId = `wagenkarte-service:${serviceNumber || ordinal + 1}${runId ? `:${runId}` : ''}`;
-  const shiftStart = clock(rows?.[3]?.[3]);
-  const shiftEnd = timelineClock(rows?.[4]?.[3], shiftStart.timelineMinutes);
-  const shiftDuration = duration(rows?.[2]?.[11]);
-  const paidTime = duration(rows?.[3]?.[11]);
-  const officialDrivingTime = duration(rows?.[4]?.[11]);
+  const shiftStart = clock(headerValue(rows, 'Dienstbeginn:') ?? rows?.[3]?.[3]);
+  const shiftEnd = timelineClock(headerValue(rows, 'Dienstende:') ?? rows?.[4]?.[3], shiftStart.timelineMinutes);
+  const shiftDuration = duration(headerValue(rows, 'Schichtdauer:') ?? rows?.[2]?.[11]);
+  const paidTime = duration(headerValue(rows, 'Bezahlte Zeit:') ?? rows?.[3]?.[11]);
+  const officialDrivingTime = duration(headerValue(rows, 'Lenkzeit') ?? rows?.[4]?.[11]);
   const observations = readSheetObservations(rows, sheetName);
   const normalized = normalizeObservationTimeline(observations, shiftStart.timelineMinutes);
   const segments = normalized.filter(item => item.kind === 'segment').map(item => item.value);
@@ -96,7 +96,7 @@ function projectService(sheet, ordinal, validity) {
     shiftEnd,
     shiftDuration,
     paidTime,
-    officialDrivingTime: { ...officialDrivingTime, source: { sourceType: 'excel', sheetName, cell: 'L5' } },
+    officialDrivingTime: { ...officialDrivingTime, source: { sourceType: 'excel', sheetName, field: 'Lenkzeit' } },
     segments: [...segments, ...activitySegments].sort(byTimeline),
     breaks,
     interruptions,
@@ -105,80 +105,84 @@ function projectService(sheet, ordinal, validity) {
   };
 }
 
+/**
+ * Extracts the three parallel Wagenkarten regions independently, then returns
+ * their observations for the existing chronological normalizer. This is the
+ * DOM-free counterpart of the legacy `extractWagenkarteStructuredData` flow.
+ */
 function readSheetObservations(rows, sheetName) {
   const observations = [];
-  let nextTripType = 'LINE_SERVICE';
-  let pendingLine = null;
-  let pendingTrip = null;
+  for (const region of WAGENKARTE_REGIONS) {
+    const regionRows = rows.map((row, rowIndex) => ({ rowIndex, cells: (Array.isArray(row) ? row : []).slice(region.start, region.end + 1) }));
+    observations.push(...readRegionObservations(regionRows, sheetName, region));
+  }
+  // A Wagenkarte continues chronologically from its left region to its right
+  // region. Rows repeat vertically in every region, so sorting by row would
+  // interleave e.g. 04:xx, 07:xx and 10:xx events and corrupt driving blocks.
+  return observations;
+}
 
-  const flushTrip = () => {
-    if (!pendingTrip || !pendingTrip.stops.length) return;
+const WAGENKARTE_REGIONS = Object.freeze([
+  // SheetJS exposes merged Wagenkarten labels at the left edge of their
+  // visual table. The legacy DOM indices were one column to the right; using
+  // the plain workbook positions keeps each complete region intact.
+  { index: 0, start: 0, end: 7 },
+  { index: 1, start: 8, end: 15 },
+  { index: 2, start: 16, end: 22 }
+]);
+
+function readRegionObservations(regionRows, sheetName, region) {
+  const observations = [];
+  let pendingTrip = null;
+  let pendingTripType = 'LINE_SERVICE';
+  let lastLineMarkerRow = null;
+  let lastDeadheadMarkerRow = null;
+
+  const flush = () => {
+    if (!pendingTrip?.stops?.length) { pendingTrip = null; return; }
     const first = pendingTrip.stops[0];
     const last = pendingTrip.stops.at(-1);
-    observations.push({
-      kind: 'segment',
-      row: pendingTrip.row,
-      value: {
-        type: pendingTrip.type,
-        line: pendingTrip.line || null,
-        trip: pendingTrip.trip || null,
-        course: null,
-        start: first.time,
-        end: last.time,
-        duration: durationBetween(first.time, last.time),
-        from: first.location,
-        to: last.location,
-        stops: pendingTrip.stops,
-        rawLabel: pendingTrip.rawLabel,
-        source: source(sheetName, pendingTrip.row)
-      }
-    });
+    observations.push({ kind: 'segment', row: pendingTrip.row, region: region.index, value: {
+      type: pendingTrip.type, line: pendingTrip.line, trip: pendingTrip.trip, course: null,
+      start: first.time, end: last.time, duration: durationBetween(first.time, last.time),
+      from: first.location, to: last.location, stops: pendingTrip.stops,
+      rawLabel: pendingTrip.rawLabel, source: source(sheetName, pendingTrip.row, region.index)
+    } });
     pendingTrip = null;
   };
 
-  rows.forEach((row, rowIndex) => {
-    // D1/D3-D5/L3-L5 are Wagenkartenkopf, not timetable rows. Their clock-like
-    // values must never become a synthetic stop or a driving segment.
-    if (rowIndex < 5) return;
-    const values = (Array.isArray(row) ? row : []).map(clean).filter(Boolean);
-    if (!values.length) return;
-    const fullText = values.join(' ');
-    const activity = parseActivity(fullText);
-    if (activity) {
-      flushTrip();
-      observations.push({ kind: 'activity', row: rowIndex, value: { ...activity, source: source(sheetName, rowIndex) } });
-      return;
-    }
-    if (values.some(value => /^Leerfahrt$/i.test(value))) {
-      flushTrip();
-      nextTripType = 'DEADHEAD';
-      pendingLine = null;
-      return;
-    }
-    if (values.some(value => /^Linie\s*\/\s*Fahrt-Nr\.?$/i.test(value))) return;
+  for (const { rowIndex, cells } of regionRows) {
+    // The four top rows are the Wagenkartenkopf. Real workbooks do not keep a
+    // blank spacer row, so a fixed `rowIndex < 5` would discard the first
+    // preparation/activity line.
+    if (rowIndex < 4) continue;
+    const values = cells.map(clean).filter(Boolean);
+    if (!values.length) continue;
+    const activities = values.map(parseActivity).filter(Boolean);
     const lineTrip = values.map(parseLineTrip).find(Boolean);
-    if (lineTrip) {
-      flushTrip();
-      pendingLine = lineTrip;
-      return;
-    }
     const stop = parseStop(values);
-    if (!stop) return;
-    if (!pendingTrip) {
-      pendingTrip = {
-        type: nextTripType,
-        line: pendingLine?.line || null,
-        trip: pendingLine?.trip || null,
-        rawLabel: pendingLine ? `${pendingLine.line}/${pendingLine.trip}` : nextTripType === 'DEADHEAD' ? 'Leerfahrt' : '',
-        row: rowIndex,
-        stops: []
-      };
-      nextTripType = 'LINE_SERVICE';
-      pendingLine = null;
+    // The legacy reader treats a Leerfahrt marker as the boundary of the
+    // preceding line trip. It then opens a separate deadhead trip at the next
+    // stop. Only the two structural table labels are non-boundaries.
+    const boundary = activities.some(activity => !['ROUTE_MARKER', 'LINE_MARKER'].includes(activity.type));
+    if (pendingTrip && (lineTrip || boundary || (pendingTrip.lastRow !== null && rowIndex - pendingTrip.lastRow > 3))) flush();
+
+    for (const activity of activities) {
+      if (activity.type === 'DEADHEAD_MARKER') { pendingTripType = 'DEADHEAD'; lastDeadheadMarkerRow = rowIndex; }
+      else if (activity.type === 'LINE_MARKER') lastLineMarkerRow = rowIndex;
+      else if (activity.type !== 'ROUTE_MARKER') observations.push({ kind: 'activity', row: rowIndex, region: region.index, value: { ...activity, source: source(sheetName, rowIndex, region.index) } });
     }
-    pendingTrip.stops.push(stop);
-  });
-  flushTrip();
+    if (lineTrip && lastLineMarkerRow !== null && rowIndex - lastLineMarkerRow <= 2) {
+      pendingTrip = { type: pendingTripType, line: lineTrip.line, trip: lineTrip.trip, rawLabel: `${lineTrip.line}/${lineTrip.trip}`, row: rowIndex, lastRow: null, stops: [] };
+      pendingTripType = 'LINE_SERVICE'; lastDeadheadMarkerRow = null; continue;
+    }
+    if (!pendingTrip && stop && pendingTripType === 'DEADHEAD' && lastDeadheadMarkerRow !== null && rowIndex > lastDeadheadMarkerRow && rowIndex - lastDeadheadMarkerRow <= 3) {
+      pendingTrip = { type: 'DEADHEAD', line: null, trip: null, rawLabel: 'Leerfahrt', row: rowIndex, lastRow: rowIndex, stops: [stop] };
+      pendingTripType = 'LINE_SERVICE'; lastDeadheadMarkerRow = null; continue;
+    }
+    if (pendingTrip && stop) { pendingTrip.stops.push(stop); pendingTrip.lastRow = rowIndex; }
+  }
+  flush();
   return observations;
 }
 
@@ -190,6 +194,9 @@ function parseActivity(text) {
     const end = timelineClock(match[2], start.timelineMinutes);
     return { type, start, end, duration: durationBetween(start, end), rawLabel: clean(text) };
   }
+  if (/^Leerfahrt$/i.test(clean(text))) return { type: 'DEADHEAD_MARKER', rawLabel: clean(text) };
+  if (/^Umlauf$/i.test(clean(text))) return { type: 'ROUTE_MARKER', rawLabel: clean(text) };
+  if (/^Linie\s*\/\s*Fahrt-Nr\.?$/i.test(clean(text))) return { type: 'LINE_MARKER', rawLabel: clean(text) };
   return null;
 }
 
@@ -201,9 +208,15 @@ function parseLineTrip(value) {
 function parseStop(values) {
   const event = values.find(value => /^(ab|an)$/i.test(value));
   const timeValue = values.find(value => TIME.test(value));
-  const location = values.find(value => !/^(ab|an)$/i.test(value) && !TIME.test(value) && !parseLineTrip(value) && !/^Linie:/i.test(value));
+  const location = values.find(value => !isStopNoise(value));
   if (!timeValue || !location) return null;
   return { event: event ? event.toLowerCase() : 'pass', time: clock(timeValue), location };
+}
+
+function isStopNoise(value) {
+  return !value || TIME.test(value) || /^(ab|an)$/i.test(value) || Boolean(parseActivity(value))
+    || Boolean(parseLineTrip(value)) || /^(Zusteiger aus:|Umsteiger in:)$/i.test(value) || /^Linie:\s*\d+/i.test(value)
+    || /^(Dienst-Nr\.:|Gültig ab:|Schichtdauer:|Dienstbeginn:|Bezahlte Zeit:|Dienstende:|Lenkzeit)$/i.test(value);
 }
 
 function normalizeObservationTimeline(observations, initialTimeline) {
@@ -282,6 +295,20 @@ function findRunId(rows) {
   for (const row of rows) {
     const match = rowText(row).match(/\bUmlauf\s*:?\s*(\d+)\b/i);
     if (match) return match[1];
+  }
+  return null;
+}
+
+function headerValue(rows, label) {
+  const wanted = clean(label).toLowerCase();
+  for (const row of rows || []) {
+    const cells = Array.isArray(row) ? row : [];
+    const index = cells.findIndex(value => clean(value).toLowerCase() === wanted);
+    if (index < 0) continue;
+    for (let cursor = index + 1; cursor < cells.length; cursor += 1) {
+      const value = clean(cells[cursor]);
+      if (value) return value;
+    }
   }
   return null;
 }
