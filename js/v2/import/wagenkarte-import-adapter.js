@@ -4,9 +4,9 @@
  * It reuses the EXISTING recognition signal (`B1 === "Dienst-Nr.:"`, the same per-sheet
  * gate the inline engine applies) on the already-read plain-object workbook and returns
  * a recognition/metadata result. Phase 9.7A additionally projects the existing,
- * explicitly labelled Wagenkarten observations into `VehicleCardSchedule`. The deep
- * per-Dienst analysis (Lenkzeitblöcke, relevante Pause, 04:30, Block-7-Renderer)
- * remains outside this adapter and is a documented Phase-9.7B boundary.
+ * explicitly labelled Wagenkarten observations into `VehicleCardSchedule`. The
+ * Phase-9.7B Block-7 projection consumes this contract separately; the adapter
+ * itself stays pure and contains no calculation or renderer.
  *
  * No SheetJS, no DOM, no storage, no network, no matching. Pure and error-isolated.
  */
@@ -50,7 +50,9 @@ export function analyzeWagenkarteWorkbook(workbook, options = {}) {
       recognized: true,
       sheetCount: sheets.length,
       dienstSheetCount,
-      // Phase 9.7A supplies data only. Block-7 calculation/renderer stay out of scope.
+      // Block 7 is available through the separate migrated projection. Other
+      // Wagenkarten blocks intentionally remain outside the V2 migration scope.
+      block7AnalysisAvailable: true,
       fullAnalysisAvailable: false
     },
     warnings: [],

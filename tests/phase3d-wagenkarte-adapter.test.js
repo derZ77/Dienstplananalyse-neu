@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 
 // Phase 3D – Wagenkarte import adapter. Safe split: it reuses the EXISTING recognition
 // signal (B1 === "Dienst-Nr.:") on the plain-object workbook and returns a recognition/
-// metadata result. The deep per-Dienst analysis stays in the unchanged inline engine
-// (documented open boundary → Phase 3E). No SheetJS, no DOM, no new interpretation.
+// metadata result. The separate Phase-9.7B Block-7 projection consumes the resulting
+// contract; the adapter itself has no SheetJS, DOM or calculation dependency.
 const { analyzeWagenkarteWorkbook } = await import('../js/v2/import/wagenkarte-import-adapter.js');
 
 const wb = (sheets) => ({ sheetNames: sheets.map(s => s.name), sheets });
@@ -27,10 +27,10 @@ test('the recognition result shape is stable and counts Dienst sheets', () => {
   assert.equal(typeof r.data.fullAnalysisAvailable, 'boolean');
 });
 
-test('the adapter defers Block-7 calculation and rendering (documented boundary)', () => {
+test('the adapter exposes the migrated Block-7 capability while leaving other Wagenkarten areas separate', () => {
   const r = analyzeWagenkarteWorkbook(wb([dienstSheet('A', '100')]));
   assert.equal(r.data.fullAnalysisAvailable, false);
-  assert.equal(r.limitation, 'WAGENKARTE_FULL_ANALYSIS_IN_INLINE_ENGINE');
+  assert.equal(r.data.block7AnalysisAvailable, true);
 });
 
 test('the adapter produces a Wagenkarten-Spezialvertrag, neither an Umlauftafel nor a Legacy schedule', () => {

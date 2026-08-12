@@ -40,6 +40,19 @@ export function renderOriginalBlocks(blocks, { document = globalThis.document } 
 }
 
 /**
+ * Writes the migrated JES Wagenkarte analysis into the original Block-7 target
+ * only. All other original blocks stay unavailable for a standalone Wagenkarte;
+ * it must never be interpreted as a JNV Umlauftafel or a CanonicalSchedule.
+ */
+export function renderVehicleCardBlock7(blocks, { document = globalThis.document } = {}) {
+  const target = document?.getElementById?.('real-driving-time-result');
+  if (!target) return;
+  const value = String(blocks?.realDrivingTimeText ?? 'Keine Wagenkarten-Dienste erkannt.');
+  if (typeof target.innerHTML === 'string') target.innerHTML = renderBlockText('real-driving-time-result', value);
+  else target.textContent = value;
+}
+
+/**
  * Presentation only: the migrated blocks already carry their assessed wording.
  * We escape every character first and only group existing paragraphs by that wording;
  * no threshold, status or business rule is calculated here.
