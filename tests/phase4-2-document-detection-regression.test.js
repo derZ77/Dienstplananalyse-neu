@@ -92,16 +92,17 @@ test('E: the real JNV plan stays JNV', async (t) => {
   assert.equal(canonicalSchedule.hardened.interruptions.length, 12);
 });
 
-test('E: the real Umlauftafel PDF is still refused', async (t) => {
+test('E: the real Umlauftafel PDF enters its isolated structural contract, never the Dienstplan path', async (t) => {
   if (!(await present(UMLAUFTAFEL_PDF))) return t.skip('Umlauftafel reference not present');
   const bytes = new Uint8Array(await readFile(UMLAUFTAFEL_PDF));
-  const { detection, canonicalSchedule } = await analyzePdfImport(fileLike(bytes));
-  assert.equal(detection.status, 'unsupported');
-  assert.equal(detection.profile, undefined);
-  assert.equal(canonicalSchedule, null, 'the pipeline does not start');
+  const { detection, canonicalSchedule, document, result } = await analyzePdfImport(fileLike(bytes));
+  assert.equal(detection.status, 'supported');
+  assert.equal(detection.profile.id, 'jnv-umlauftafel-pdf-v1');
+  assert.equal(canonicalSchedule, null, 'the Dienstplan pipeline does not start');
+  assert.equal(document.documentType, 'umlaufkarte');
+  assert.equal(result.ok, true);
   assert.equal(detection.signals.tableHeaderFound, false);
-  assert.deepEqual(detection.signals.jesSignals, [false, false, false]);
-  assert.deepEqual(detection.signals.beuSignals, [false, false, false]);
+  assert.deepEqual(detection.signals.umlaufSignals.slice(0, 7), [true, true, true, true, true, true, true]);
 
   // …and the repaired projection did not accidentally create a signal out of its line text.
   const text = buildDetectionText(await extractPdfLayoutDocument(bytes));
@@ -110,10 +111,10 @@ test('E: the real Umlauftafel PDF is still refused', async (t) => {
   assert.ok(!text.includes('Dienste Stadtbus'));
 });
 
-test('E: a Wagenkarte can never be classified by this detector at all', () => {
+test('E: only the JNV Umlauftafel PDF family is added; Wagenkarten remain Excel-only', () => {
   assert.deepEqual(getProfilesForDocumentType('wagenkarte'), []);
   assert.deepEqual(getProfilesForDocumentType('umlaufkarte'), []);
-  assert.deepEqual(Object.keys(PDF_DOCUMENT_PROFILES).sort(), ['beu', 'jes']);
+  assert.deepEqual(Object.keys(PDF_DOCUMENT_PROFILES).sort(), ['beu', 'jes', 'jnvUmlauftafel']);
   // Wagenkarten arrive as .xlsx and are classified elsewhere; that path is untouched here.
   assert.doesNotMatch(src('../js/v2/import/excel-document-classifier.js'), /4\.2|Phase 4/);
   assert.doesNotMatch(src('../js/v2/import/excel-import-controller.js'), /4\.2|Phase 4/);

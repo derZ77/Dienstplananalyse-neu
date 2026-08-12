@@ -72,7 +72,14 @@ export function classifyExcelDocument(workbook) {
   const jesTenColumnHeader = sheets.some(sheet => (sheet.rows || []).some(row =>
     TEN_COLUMN_SCHEDULE_HEADER.every((label, index) => String(row?.[index] ?? '').trim() === label)
   ));
-  const legacyHeader = jesTenColumnHeader || sheets.some(sheet => {
+  const jnvLegacyHeader = sheets.some(sheet => (sheet.rows || []).some(row => {
+    const values = row.map(cell => String(cell).trim().toLocaleLowerCase('de'));
+    // Historical JNV files split their 17-column heading over two rows and
+    // may put a title above it. Require four fixed-position labels so generic
+    // notes with words such as "Dienst" cannot unlock a parser.
+    return values[2] === 'dienst-' && values[3] === 'linie' && values[4] === 'umlauf' && values[5] === 'ausf.' && values[16] === 'bez.';
+  }));
+  const legacyHeader = jesTenColumnHeader || jnvLegacyHeader || sheets.some(sheet => {
     const first = (sheet.rows?.[0] || []).map(c => String(c).trim());
     return first.includes('Dienst') && first.includes('Umlauf') && first.includes('Tätigkeit');
   });
@@ -110,7 +117,17 @@ export function classifyExcelDocument(workbook) {
     return { type: 'wagenkarte', subtype: null, mode: null, confidence: EXCEL_CLASSIFICATION_CONFIDENCE.EXACT, ...base };
   }
   if (legacyStrong) {
-    return { type: 'legacy_excel_schedule', subtype: jesTenColumnHeader ? 'jes_schedule_excel' : null, mode: null, confidence: EXCEL_CLASSIFICATION_CONFIDENCE.EXACT, ...base };
+    // The fixed ten-column signature is JES. The older, structurally distinct
+    // 17-column Dienstübersicht is the established JNV roster family; this is a
+    // content distinction, not a filename fallback.
+    return {
+      type: 'legacy_excel_schedule',
+      subtype: jesTenColumnHeader ? 'jes_schedule_excel' : jnvLegacyHeader ? 'jnv_legacy_schedule' : null,
+      organization: jesTenColumnHeader ? 'JES' : jnvLegacyHeader ? 'JNV' : null,
+      mode: null,
+      confidence: EXCEL_CLASSIFICATION_CONFIDENCE.EXACT,
+      ...base
+    };
   }
 
   // Several supporting Umlauftafel signals but a required one missing → probable (not routed).

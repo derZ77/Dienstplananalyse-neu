@@ -82,7 +82,11 @@ export async function analyzeExcelImport(file) {
     return { classification, document: null, result: null, importResult, warnings: importResult.warnings };
   }
   if (classification.type === 'legacy_excel_schedule' && isExact) {
-    const importResult = runFachAdapter(() => analyzeLegacyExcelWorkbook(workbook, { sourceName: file.name || null }), 'LEGACY_EXCEL_IMPORT_FAILED');
+    const importResult = runFachAdapter(() => analyzeLegacyExcelWorkbook(workbook, {
+      sourceName: file.name || null,
+      organization: classification.organization ?? null,
+      subtype: classification.subtype ?? null
+    }), 'LEGACY_EXCEL_IMPORT_FAILED');
     return { classification, document: null, result: null, importResult, warnings: importResult.warnings };
   }
 

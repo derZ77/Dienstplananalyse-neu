@@ -162,12 +162,13 @@ test('B: no PDF profile produces an Umlauftafel or a Wagenkarte at all', () => {
   assert.deepEqual(Object.keys(DOCUMENT_PROFILES).sort(), ['beu-stadtbus-v1', 'jes-regionalbus-v1']);
 });
 
-test('B: an Umlauftafel PDF is not recognised as a schedule',
+test('B: an Umlauftafel PDF is recognised as a non-exportable Umlauftafel, never as a schedule',
   { skip: !readable(REFERENCE.umlauftafel) && 'Umlauftafel reference not present' }, async () => {
     const { text, pageCount } = await extractText(REFERENCE.umlauftafel);
     const detection = detectPdfDocumentProfile({ text, pageCount });
-    assert.equal(detection.status, 'unsupported');
-    assert.equal(detection.profile, undefined, 'no profile, therefore no export');
+    assert.equal(detection.status, 'supported');
+    assert.equal(detection.profile.id, 'jnv-umlauftafel-pdf-v1');
+    assert.ok(!EXPORTABLE_DOCUMENT_TYPES.includes(DOCUMENT_TYPES.UMLAUFKARTE), 'recognition never grants Dienstplan export');
     assert.equal(detection.signals.tableHeaderFound, false, 'it has no Dienstplan table header');
   });
 

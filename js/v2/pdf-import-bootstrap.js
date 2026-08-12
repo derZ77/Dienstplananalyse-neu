@@ -72,7 +72,7 @@ function render(state) {
   renderValidityControls(canonicalSchedule);
   if (canonicalSchedule?.type === 'CanonicalSchedule') {
     renderOriginalBlocks(createOriginalBlockViewModel(canonicalSchedule, { checkReport: state.checkReport }));
-  } else if (!state?.primaryImport) {
+  } else {
     clearOriginalBlocks();
   }
   // The existing CheckReport is handed over unchanged; a missing one leaves the explorer empty.

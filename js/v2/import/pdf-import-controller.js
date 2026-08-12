@@ -82,6 +82,11 @@ export async function handlePdfImport(file, statusElement) {
       return analysis;
     }
 
+    if (detection.profile.id === 'jnv-umlauftafel-pdf-v1') {
+      const count = analysis.result?.statistics?.circulationCount ?? 0;
+      setStatus(statusElement, `Dokument erkannt: JNV Umlauftafel (${count} Umläufe). Fahr-/Umlaufdaten wurden strukturiert geladen; eine vollständige Block-7-Auswertung folgt über den spezialisierten Analysepfad.`);
+      return analysis;
+    }
     const pageHint = detection.pageCount > 0 ? ` (${detection.pageCount} Seiten)` : '';
     setStatus(
       statusElement,

@@ -24,6 +24,7 @@ import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js';
 import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
 import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js';
 import { attachCanonicalValidity } from '../schedule/canonical-validity.js';
+import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js';
 
 const DETECTION_PAGES = 2;
 
@@ -55,8 +56,8 @@ export function buildDetectionText(layout) {
 
 /**
  * Runs profile detection and, for supported profiles, the full canonical
- * pipeline plus (JNV-only) hardening. Returns `{ detection, canonicalSchedule }`;
- * unsupported PDFs return a null schedule and keep the existing detection result.
+ * pipeline plus (JNV-only) hardening. JNV Umlauftafeln deliberately enter their
+ * established Umlauftafel contract instead of being misread as a Dienstplan.
  */
 export async function analyzePdfImport(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -65,6 +66,18 @@ export async function analyzePdfImport(file) {
 
   if (detection.status !== 'supported') {
     return { detection, canonicalSchedule: null };
+  }
+
+  if (detection.profile.id === 'jnv-umlauftafel-pdf-v1') {
+    const result = loadJnvUmlauftafelFromPdfLayout(layout, { sourceName: file?.name || null });
+    return {
+      detection,
+      documentType: 'umlaufkarte',
+      document: result.document,
+      result,
+      canonicalSchedule: null,
+      warnings: result.warnings
+    };
   }
 
   const scheduleDocument = mapPdfDocumentToSchedule(normalizePdfLayoutDocument(layout));

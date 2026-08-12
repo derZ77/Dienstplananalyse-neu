@@ -28,7 +28,7 @@ const warning = (code) => ({ code, severity: 'warning', message: '', scope: 'doc
 
 /**
  * @param {{ sheets?: Array<{ name?: string, rows?: unknown[][] }> }} workbook plain workbook
- * @param {{ sourceName?: string }} [options]
+ * @param {{ sourceName?: string, organization?: string|null, subtype?: string|null }} [options]
  * @returns {{ ok: boolean, documentType: 'legacy_excel_schedule', data: object|null, warnings: Array<{code:string}> }}
  */
 export function analyzeLegacyExcelWorkbook(workbook, options = {}) {
@@ -40,10 +40,17 @@ export function analyzeLegacyExcelWorkbook(workbook, options = {}) {
   }
 
   try {
-    const schedule = adaptExcelRowsToCanonicalSchedule(rows, {
+    const canonical = adaptExcelRowsToCanonicalSchedule(rows, {
       fileName: options.sourceName || '',
       sheetName: firstSheet.name || ''
     });
+    // Classification establishes the document family; the canonical adapter
+    // remains responsible for all actual timetable fields.
+    const schedule = {
+      ...canonical,
+      document: { ...canonical.document, organization: options.organization || null, subtype: options.subtype || null },
+      metadata: { ...canonical.metadata, organization: options.organization || null, documentSubtype: options.subtype || null }
+    };
     // Additive, in this order: the relief chain first, over the plain duty legs, then the breaks —
     // so a derived break activity is never mistaken for a leg carrying a handover.
     const withHandover = attachExcelHandoverData(schedule);
