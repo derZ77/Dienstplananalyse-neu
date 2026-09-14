@@ -88,16 +88,19 @@ export function reconstructTablesAndBlocks(lines, pageNumber, pageBox) {
 }
 
 function findGeometricHeaders(lines) {
-  const candidates = lines.filter(line => {
-    const nonEmptyObjects = line.textObjects.filter(object => object.text.trim());
-    const xSpread = line.boundingBox.xMax - line.boundingBox.xMin;
-    return nonEmptyObjects.length >= COLUMN_COUNT && xSpread > 400;
-  });
-
+  const candidates = lines.filter(line => isHeaderLine(line));
   return candidates.filter(candidate => {
     const candidateAnchors = anchorPositions(candidate);
     return candidates.filter(other => anchorSimilarity(candidateAnchors, anchorPositions(other)) >= 0.8).length >= 2;
   });
+}
+
+function isHeaderLine(line) {
+  const nonEmptyObjects = line.textObjects.filter(object => object.text.trim());
+  const xSpread = line.boundingBox.xMax - line.boundingBox.xMin;
+  if (nonEmptyObjects.length < COLUMN_COUNT || xSpread <= 400) return false;
+  const text = nonEmptyObjects.map(object => object.text.trim()).join(' ');
+  return /^Dienst\s+Umlauf\s+Tätigkeit\b/.test(text);
 }
 
 function anchorPositions(line) {

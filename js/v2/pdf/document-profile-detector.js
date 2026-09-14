@@ -87,7 +87,7 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   const beuSignals = [
     /Dienste Stadtbus Montag bis Freitag \(Schule\), ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
     tableHeaderFound,
-    /Aufrüsten|Abrüsten|Mitfahrt|Vorbereitung/.test(normalized)
+    /Aufrüsten|Abrüsten|Mitfahrt|Vorbereitung|Dienst|Pause/.test(normalized)
   ];
 
   if (beuSignals.every(Boolean)) {
