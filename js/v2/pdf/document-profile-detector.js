@@ -42,7 +42,7 @@ function hasTableHeader(text) {
  */
 export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   const normalized = normalizePdfText(text);
-  const title = normalized.match(/Dienste\s+(?:Regionalbus|Stadtbus)\s+Montag\s+bis\s+Freitag\s+\((?:Ferien|Schule)\),\s+ab\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
+  const title = normalized.match(/Dienste\s+(?:Regionalbus|Stadtbus)\s+Montag\s+bis\s+Freitag(?:\s+\((?:Ferien|Schule)\))?,\s+ab\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
   const tableHeaderFound = hasTableHeader(normalized);
 
   // Umlauftafeln have no ten-column Dienstübersicht header. Classification is
@@ -69,7 +69,7 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   }
 
   const jesSignals = [
-    /Dienste Regionalbus Montag bis Freitag \((?:Ferien|Schule)\), ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
+    /Dienste Regionalbus Montag bis Freitag(?: \((?:Ferien|Schule)\))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
     tableHeaderFound,
     /Vorbereitungszeit(?:\s*JES)?|Nachbereitungszeit(?:\s*JES)?|JES(?:\s*Pausenort)?/.test(normalized)
   ];

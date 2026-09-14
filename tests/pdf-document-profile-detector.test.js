@@ -18,6 +18,17 @@ test('erkennt das JES-Referenzprofil regelbasiert', () => {
   assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.jes);
 });
 
+test('erkennt Regionalbus Montag bis Freitag auch ohne Ferien- oder Schulzusatz', () => {
+  const result = detectPdfDocumentProfile({
+    text: `Dienste Regionalbus Montag bis Freitag, ab 14.09.2026 ${tableHeader} Vorbereitungszeit Dienst Pause`,
+    pageCount: 8
+  });
+
+  assert.equal(result.status, 'supported');
+  assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.jes);
+  assert.equal(result.title, 'Dienste Regionalbus Montag bis Freitag, ab 14.09.2026');
+});
+
 test('erkennt das BEU-Referenzprofil regelbasiert', () => {
   const result = detectPdfDocumentProfile({
     text: `Dienste Stadtbus Montag bis Freitag (Schule), ab 17.08.2026 ${tableHeader} Aufrüsten Mitfahrt`,
