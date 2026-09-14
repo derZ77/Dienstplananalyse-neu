@@ -19,7 +19,7 @@
 import { extractPdfLayoutDocument } from '../pdf/pdf-core.js';
 import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js';
 import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js';
-import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js';
+import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.10';
 import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js';
 import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
 import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js';

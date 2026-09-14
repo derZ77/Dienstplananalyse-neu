@@ -1,4 +1,4 @@
-import { initializePdfImport } from './import/pdf-import-controller.js';
+import { initializePdfImport } from './import/pdf-import-controller.js?v=phase9.10';
 import { createMultiDocumentSession } from './import/multi-document-import-controller.js';
 import { createCheckExplorerSessionBridge } from './explorer/check-explorer-session-bridge.js';
 import { deriveReportContext } from './report/check-report-view-model.js';
