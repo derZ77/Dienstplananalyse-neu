@@ -88,7 +88,12 @@ function aggregateStatistics(schedule, services) {
   const interruptionCount = schedule.interruptions.length || flaggedInterruptions;
 
   return {
+    // Keep the source-record count while exposing the logical duty count used by
+    // the existing Blocks UI. Duplicate-number variants remain separate records.
     serviceCount: schedule.services.length,
+    uniqueServiceCount: new Set(schedule.services
+      .map(service => String(service.serviceNumber ?? '').trim())
+      .filter(serviceNumber => /^\d+$/.test(serviceNumber) && Number(serviceNumber) >= 1)).size,
     activityCount: schedule.activities.length,
     interruptionCount,
     pauseCount: countActivityTypes(activities, new Set(['paidBreak', 'unpaidBreak'])),

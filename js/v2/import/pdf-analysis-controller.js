@@ -16,15 +16,15 @@
  * Local only: no network, no storage, no new dependency.
  */
 
-import { extractPdfLayoutDocument } from '../pdf/pdf-core.js';
-import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js';
-import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js';
+import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.10';
+import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.10';
+import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.10';
 import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.10';
-import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js';
-import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js';
-import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js';
-import { attachCanonicalValidity } from '../schedule/canonical-validity.js';
-import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js';
+import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.10';
+import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.10';
+import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.10';
+import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.10';
+import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.10';
 
 const DETECTION_PAGES = 2;
 
@@ -86,7 +86,37 @@ export async function analyzePdfImport(file) {
     headerText: detection.title,
     fileName: file?.name || ''
   });
-  return { detection, canonicalSchedule };
+  return { detection, canonicalSchedule: attachServiceVariantValidity(canonicalSchedule) };
+}
+
+/** Duplicate logical IDs stay separate source records; absent row-level evidence is explicit. */
+function attachServiceVariantValidity(schedule) {
+  const groups = new Map();
+  for (const service of schedule.services || []) {
+    const key = String(service.serviceNumber ?? '').trim();
+    const group = groups.get(key) || [];
+    group.push(service);
+    groups.set(key, group);
+  }
+  const variants = new Map([...groups].filter(([, services]) => services.length > 1));
+  if (!variants.size) return schedule;
+  const variantById = new Map();
+  for (const [serviceNumber, services] of variants) {
+    services.forEach((service, index) => variantById.set(service.id, {
+      logicalServiceNumber: serviceNumber,
+      variantIndex: index + 1,
+      variantCount: services.length,
+      validity: { status: 'unresolved', dayType: 'unknown', serviceRegime: 'unknown', source: 'UNKNOWN' }
+    }));
+  }
+  return {
+    ...schedule,
+    services: schedule.services.map(service => ({ ...service, ...(variantById.get(service.id) || {}) })),
+    activities: schedule.activities.map(activity => {
+      const variant = variantById.get(activity.serviceId);
+      return variant ? { ...activity, logicalServiceNumber: variant.logicalServiceNumber, variantIndex: variant.variantIndex, variantCount: variant.variantCount } : activity;
+    })
+  };
 }
 
 /**

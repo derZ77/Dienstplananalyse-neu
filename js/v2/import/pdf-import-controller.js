@@ -107,9 +107,13 @@ export async function handlePdfImport(file, statusElement) {
  * Legacy-Excel-Dienstplan vs unknown. No PDF/XLSX mixing, no conversion.
  */
 export async function handleImport(file, statusElement) {
+  if (!file) {
+    setStatus(statusElement, '', true);
+    return null;
+  }
   if (isPdfFile(file)) return handlePdfImport(file, statusElement);
   if (isExcelFile(file)) return handleExcelImport(file, statusElement);
-  setStatus(statusElement, '', true);
+  setStatus(statusElement, 'Dieser Dateityp wird nicht unterstützt.');
   return null;
 }
 

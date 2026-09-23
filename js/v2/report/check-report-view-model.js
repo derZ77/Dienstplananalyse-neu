@@ -54,10 +54,18 @@ export function deriveReportContext(state) {
         || text(canonicalSchedule?.validity?.dayType)
         || null,
       serviceCount: canonicalSchedule && Array.isArray(canonicalSchedule.services)
-        ? canonicalSchedule.services.length
+        ? countUniqueServiceNumbers(canonicalSchedule.services)
         : null
     }
   };
+}
+
+function countUniqueServiceNumbers(services) {
+  const numbers = services.map(service => String(service?.serviceNumber ?? '').trim());
+  const positiveNumeric = numbers.filter(serviceNumber => /^\d+$/.test(serviceNumber) && Number(serviceNumber) >= 1);
+  return positiveNumeric.length
+    ? new Set(positiveNumeric).size
+    : services.length;
 }
 
 /** Readable labels for the frozen status vocabulary. The values themselves are never replaced. */

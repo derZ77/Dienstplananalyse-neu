@@ -179,7 +179,12 @@ export function createMultiDocumentSession({
   /** Store the primary result captured from the unchanged single-import path. */
   function setPrimaryResult(result, file) {
     if (!file) { state.primaryImport = null; state.automaticCanonicalSchedule = null; state.primaryFileName = null; return rebuild(); } // deselected → clear
-    if (result == null) return snapshot();                                // failed/unsupported → keep previous valid primary
+    if (result == null) {
+      state.primaryImport = null;
+      state.automaticCanonicalSchedule = null;
+      state.primaryFileName = typeof file.name === 'string' ? file.name : null;
+      return rebuild();
+    }
     state.primaryImport = normalizePrimaryImport(result);
     state.automaticCanonicalSchedule = state.primaryImport?.canonicalSchedule?.type === 'CanonicalSchedule'
       ? state.primaryImport.canonicalSchedule

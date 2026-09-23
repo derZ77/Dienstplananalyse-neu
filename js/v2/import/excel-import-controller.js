@@ -19,9 +19,10 @@ import { analyzeWagenkarteWorkbook } from './wagenkarte-import-adapter.js';
 import { analyzeLegacyExcelWorkbook } from './legacy-excel-import-adapter.js';
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const XLS_MIME = 'application/vnd.ms-excel';
 
 export function isExcelFile(file) {
-  return Boolean(file) && (/\.xlsx$/i.test(file.name || '') || file.type === XLSX_MIME);
+  return Boolean(file) && (/\.xlsx?$/i.test(file.name || '') || file.type === XLSX_MIME || file.type === XLS_MIME);
 }
 
 function setStatus(element, message, hidden = false) {

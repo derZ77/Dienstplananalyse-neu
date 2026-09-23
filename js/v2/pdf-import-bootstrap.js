@@ -9,7 +9,7 @@ import { clearOriginalBlocks, renderOriginalBlocks, renderVehicleCardBlock7 } fr
 import { createVehicleCardBlock7ViewModel } from './blocks/wagenkarte-block7.js';
 import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
 import { initializeAnalysisSearch } from './ui/analysis-search-controller.js';
-import { formatCanonicalValidity, formatValiditySource } from './schedule/canonical-validity.js';
+import { formatCanonicalValidity, formatValiditySource } from './schedule/canonical-validity.js?v=phase9.10';
 
 // Phase 3F: one memory-only session holds the primary (captured from the unchanged
 // single import) and an optional companion. No storage, no network, no matching.

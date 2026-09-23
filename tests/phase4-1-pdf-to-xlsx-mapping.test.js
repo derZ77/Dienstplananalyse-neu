@@ -56,7 +56,7 @@ test('E: the JNV Dienstplan-PDF really does reach a CanonicalSchedule', { skip: 
   const schedule = await jnv();
   assert.equal(schedule.type, 'CanonicalSchedule');
   assert.equal(schedule.services.length, 62, '62 duties on the reference plan');
-  assert.equal(schedule.activities.length, 656, '656 activity rows');
+  assert.equal(schedule.activities.length, 641, '629 activities plus 12 structured interruption rows');
   assert.equal(new Set(schedule.services.map(s => String(s.serviceNumber).trim())).size, 62,
     'every duty number is unique — the Dienste sheet has a stable key');
 });
@@ -72,7 +72,7 @@ test('E: the duty-level columns are complete', { skip: skipJnv }, async () => {
 test('E: the activity-level columns have the coverage the mapping matrix records',
   { skip: skipJnv }, async () => {
     const { activities } = await jnv();
-    assert.equal(activities.length, 656);
+    assert.equal(activities.length, 641);
     // Printed in a dedicated column on (almost) every row:
     assert.equal(filled(activities, a => a.rawActivity), 629, 'Tätigkeit');
     assert.equal(filled(activities, a => a.departureTime?.value), 629, 'Beginn');
@@ -82,8 +82,10 @@ test('E: the activity-level columns have the coverage the mapping matrix records
     // Only where the row actually drives a line service:
     assert.equal(filled(activities, a => a.circuitNumber), 173, 'Umlauf');
     assert.equal(filled(activities, a => a.routeIdentity?.line), 173, 'Linie (derived from the Umlauf)');
-    // The remaining 27 rows are page footers and interruption lines — they carry no activity.
-    assert.equal(656 - 629, 27, 'rows without an activity text');
+    // Only the 12 structured interruption rows have no activity text; page footers are excluded.
+    assert.equal(641 - 629, 12, 'rows without an activity text');
+    assert.equal(activities.filter(a => /^Seite\s+\d+\s+von\s+\d+$/i.test(a.originalText.trim())).length, 0,
+      'page footers are not activities');
   });
 
 test('E: the Linie is DERIVED from the Umlauf code and never invented', { skip: skipJnv }, async () => {
@@ -125,7 +127,7 @@ test('E: the relief chain has NO source in the PDF and therefore stays empty',
 test('E: every row can name its page, so the export is traceable without a raw copy',
   { skip: skipJnv }, async () => {
     const { activities } = await jnv();
-    assert.equal(filled(activities, a => a.source?.pageNumber), 656, 'Seite');
+    assert.equal(filled(activities, a => a.source?.pageNumber), 641, 'Seite');
     assert.ok(activities.every(a => Number.isInteger(a.source.pageNumber) && a.source.pageNumber >= 1));
   });
 
@@ -146,9 +148,10 @@ test('F: the pipeline itself flags the rows that must become "inconclusive"',
     const { hardened } = await jnv();
     const byCode = {};
     for (const warning of hardened.warnings) byCode[warning.code] = (byCode[warning.code] || 0) + 1;
-    assert.deepEqual(byCode, { NON_TABULAR_ANNOTATION: 15, AMBIGUOUS_GENERIC_DUTY: 1 },
+    assert.deepEqual(byCode, { AMBIGUOUS_GENERIC_DUTY: 1 },
       'these are exactly the rows the export must mark rather than present as clean');
-    assert.equal(hardened.metadata.warningCount, 16);
+    assert.equal(hardened.metadata.annotationCount, 0, 'technical page footers are not annotations');
+    assert.equal(hardened.metadata.warningCount, 1);
   });
 
 test('F: an ambiguous duty is flagged on the activity itself', { skip: skipJnv }, async () => {

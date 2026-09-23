@@ -12,6 +12,8 @@ import { access, readFile } from 'node:fs/promises';
 globalThis.DOMMatrix ||= class DOMMatrix {};
 
 const { analyzePdfImport } = await import('../js/v2/import/pdf-analysis-controller.js');
+const { analyzeCanonicalSchedule } = await import('../js/v2/analysis/analysis-core.js');
+const { deriveReportContext } = await import('../js/v2/report/check-report-view-model.js');
 const {
   buildDienstplanXlsxModel, DIENSTPLAN_COLUMNS, DIENSTE_COLUMNS, MODEL_WARNING_CODES
 } = await import('../js/v2/export/dienstplan-xlsx-model.js');
@@ -62,6 +64,17 @@ test('D: all 19 duty blocks are kept — none is merged away', { skip }, async (
 
 test('D: the duplicate duty number 757 stays visible as two separate rows', { skip }, async () => {
   const built = await projection();
+  const variants = schedule.services.filter(service => service.serviceNumber === '757');
+  assert.equal(variants.length, 2, 'both printed source blocks remain present');
+  assert.equal(new Set(variants.map(service => service.id)).size, 2, 'variants keep distinct source identities');
+  assert.deepEqual(variants.map(service => [service.logicalServiceNumber, service.variantIndex, service.variantCount, service.validity.status]), [
+    ['757', 1, 2, 'unresolved'], ['757', 2, 2, 'unresolved']
+  ]);
+  const analysis = analyzeCanonicalSchedule(schedule);
+  assert.equal(analysis.statistics.serviceCount, 19, 'source records are not deduplicated');
+  assert.equal(analysis.statistics.uniqueServiceCount, 18, 'logical duty count is distinct');
+  assert.equal(deriveReportContext({ primaryImport: { canonicalSchedule: schedule } }).metadata.serviceCount, 18);
+
   const numbers = values(built, 'Dienste', 'Dienstnummer');
   assert.equal(numbers.length, 19);
   assert.equal(new Set(numbers).size, 18, 'eighteen distinct numbers across nineteen blocks');

@@ -232,13 +232,13 @@ test('B: the workbook metadata is sparse and carries nothing personal', { skip: 
 // =====================================================================================
 // H — real data
 // =====================================================================================
-test('H: the real JNV plan writes 641 / 62 / 31 data rows', { skip: skipJnv }, async () => {
+test('H: the real JNV plan writes 641 / 62 / 1 data rows', { skip: skipJnv }, async () => {
   const result = writeDienstplanXlsx(await realModel(JNV_PDF), { xlsx: XLSX, now: DAY });
   assert.equal(result.fileName, 'JNV-Dienstplan-Export-2026-08-04.xlsx');
   const book = readBack(result);
   assert.equal(rowsOf(book, 'Dienstplan').length - 1, 641);
   assert.equal(rowsOf(book, 'Dienste').length - 1, 62);
-  assert.equal(rowsOf(book, 'Importhinweise').length - 1, 31);
+  assert.equal(rowsOf(book, 'Importhinweise').length - 1, 1);
   const lineIndex = DIENSTPLAN_COLUMNS.indexOf('Linie');
   assert.equal(rowsOf(book, 'Dienstplan').slice(1).filter(row => row[lineIndex]).length, 173);
 });

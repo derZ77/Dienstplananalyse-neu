@@ -20,6 +20,7 @@ try {
 
 const controllerSource = readFileSync(new URL('../js/v2/import/excel-import-controller.js', import.meta.url), 'utf8');
 const { handleImport } = await import('../js/v2/import/pdf-import-controller.js');
+const { isExcelFile } = await import('../js/v2/import/excel-import-controller.js');
 
 const BUS = FIXTURES.busUmlauftafelXlsx;
 const TRAM = FIXTURES.tramUmlauftafelXlsx;
@@ -35,6 +36,13 @@ const buildXlsx = (specs) => {
   for (const s of specs) globalThis.XLSX.utils.book_append_sheet(wbk, globalThis.XLSX.utils.aoa_to_sheet(s.aoa), s.name);
   return new Uint8Array(globalThis.XLSX.write(wbk, { type: 'array', bookType: 'xlsx' }));
 };
+
+test('the published XLS contract recognizes both legacy .xls and modern .xlsx files', () => {
+  assert.equal(isExcelFile({ name: 'dienstplan.xls', type: 'application/vnd.ms-excel' }), true);
+  assert.equal(isExcelFile({ name: 'dienstplan.xls', type: 'application/octet-stream' }), true);
+  assert.equal(isExcelFile({ name: 'dienstplan.xlsx', type: XLSX_MIME }), true);
+  assert.equal(isExcelFile({ name: 'not-a-workbook.txt', type: 'text/plain' }), false);
+});
 
 test('static: the central controller stays free of SheetJS, storage, network, matching, bundle', () => {
   assert.doesNotMatch(controllerSource, /XLSX\.read|XLSX\.utils|sheet_to_json/);

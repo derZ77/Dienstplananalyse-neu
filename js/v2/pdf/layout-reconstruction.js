@@ -134,6 +134,7 @@ function createColumns(headerLine, pageBox) {
 function assignCells(lines, columns, pageNumber, tableIndex) {
   const cells = [];
   for (const line of lines) {
+    if (/^Seite\s+\d+\s+(?:von\s+|\/\s*)\d+$/i.test(String(line?.text || '').trim())) continue;
     const grouped = columns.map(column => ({ column, textObjects: [] }));
     for (const textObject of line.textObjects) {
       const center = (textObject.boundingBox.xMin + textObject.boundingBox.xMax) / 2;

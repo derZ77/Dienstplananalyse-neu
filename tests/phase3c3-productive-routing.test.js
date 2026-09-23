@@ -107,9 +107,10 @@ test('PDF path is unchanged (routed to the PDF handler, still JNV-hardened)', as
   assert.equal(analysis.canonicalSchedule.hardened.applied, true);
 });
 
-test('a non-pdf non-xlsx file hides the status and is not analyzed', async () => {
+test('a non-pdf non-xlsx file is visibly rejected and is not analyzed', async () => {
   const status = statusEl();
   const r = await handleImport({ name: 'notes.txt', type: 'text/plain' }, status);
   assert.equal(r, null);
-  assert.equal(status.hidden, true);
+  assert.equal(status.hidden, false);
+  assert.match(status.textContent, /Dateityp wird nicht unterstützt/);
 });

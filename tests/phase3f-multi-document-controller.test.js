@@ -142,11 +142,13 @@ test('a failed companion replacement does not destroy the valid state', async ()
   assert.equal(s.bundle.compatibility.status, 'exact', 'previous exact bundle is kept');
 });
 
-test('a null/failed primary result does not overwrite a valid primary', async () => {
+test('a selected primary file with no import result clears the old analysis', async () => {
   const { session } = makeSession();
   session.setPrimaryResult(JNV, { name: 'p.pdf' });
-  const s = session.setPrimaryResult(null, { name: 'broken.pdf' }); // import failed, file present
-  assert.equal(s.primaryImport, JNV, 'valid primary is kept');
+  const s = session.setPrimaryResult(null, { name: 'broken.pdf' });
+  assert.equal(s.primaryImport, null, 'an old analysis must not remain under a newly selected file');
+  assert.equal(s.automaticCanonicalSchedule, null);
+  assert.equal(s.bundle, null);
 });
 
 test('createBundleFromImports is called once per complete combination', async () => {

@@ -13,8 +13,8 @@
  * Pure, deterministic, local. No new dependency, no network, no storage.
  */
 
-import { buildCanonicalSchedule } from './canonical-schedule-builder.js';
-import { enrichJnvSchedule } from './jnv-schedule-hardening.js';
+import { buildCanonicalSchedule } from './canonical-schedule-builder.js?v=phase9.10';
+import { enrichJnvSchedule } from './jnv-schedule-hardening.js?v=phase9.10';
 
 // Activation is bound to the JNV profile only (technical id + fachlicher type).
 const JNV_PROFILE_ID = 'beu-stadtbus-v1';

@@ -39,6 +39,26 @@ test('erkennt das BEU-Referenzprofil regelbasiert', () => {
   assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.beu);
 });
 
+test('lehnt einen BEU-Titel mit Tabellenkopf ohne Dienst- oder Tätigkeitsdaten ab', () => {
+  const result = detectPdfDocumentProfile({
+    text: `Dienste Stadtbus Montag bis Freitag, ab 26.10.2026 ${tableHeader}`,
+    pageCount: 1
+  });
+
+  assert.equal(result.status, 'unsupported');
+  assert.equal(result.profile, undefined);
+});
+
+test('erkennt Stadtbus ohne Schulzusatz mit unabhängigen Tätigkeitssignalen', () => {
+  const result = detectPdfDocumentProfile({
+    text: `Dienste Stadtbus Montag bis Freitag, ab 26.10.2026 ${tableHeader} Aufrüsten Mitfahrt`,
+    pageCount: 16
+  });
+
+  assert.equal(result.status, 'supported');
+  assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.beu);
+});
+
 test('lehnt unbekannte PDFs ohne Teilanalyse ab', () => {
   const result = detectPdfDocumentProfile({
     text: 'Irgendein Fahrplan mit einer nicht unterstützten Tabellenstruktur',

@@ -119,7 +119,11 @@ export function deriveServiceInterruptions(service) {
   const activities = Array.isArray(service?.activities) ? service.activities : [];
   const interruptions = [];
 
-  for (let i = 1; i < activities.length; i++) {
+  for (let i = 0; i < activities.length; i++) {
+    const explicit = parseExplicitServiceInterruption(service, activities[i], interruptions.length + 1);
+    if (explicit) interruptions.push(explicit);
+    if (i === 0) continue;
+
     const previous = activities[i - 1];
     const next = activities[i];
     const from = minutesOf(previous.arrivalTime);
@@ -149,6 +153,40 @@ export function deriveServiceInterruptions(service) {
     }));
   }
   return interruptions;
+}
+
+function parseExplicitServiceInterruption(service, activity, ordinal) {
+  const match = text(activity?.rawActivity).match(/\bDienstunterbrechung\s+von\s+(\d{1,2}:\d{2})\s+Uhr\s+bis\s+(\d{1,2}:\d{2})\s+Uhr\b/i);
+  if (!match) return null;
+  const startMinutes = parseClockMinutes(match[1]);
+  const endMinutes = parseClockMinutes(match[2]);
+  if (startMinutes === null || endMinutes === null) return null;
+
+  let durationMinutes = endMinutes - startMinutes;
+  if (durationMinutes < -720) durationMinutes += 1440;
+  if (durationMinutes <= 0) return null;
+
+  return createCanonicalInterruption({
+    id: `excel-interruption:${service.id}:explicit:${ordinal}`,
+    type: 'serviceInterruption',
+    kind: CANONICAL_INTERRUPTION_KINDS.INTERRUPTION,
+    serviceId: service.id,
+    serviceNumber: service.serviceNumber,
+    start: clock(startMinutes),
+    end: clock(endMinutes),
+    durationMinutes,
+    startLocation: text(activity.departureLocation),
+    endLocation: text(activity.arrivalLocation),
+    activityId: activity.id,
+    source: activity.source || null
+  });
+}
+
+function parseClockMinutes(value) {
+  const match = /^(\d{1,2}):([0-5]\d)$/.exec(text(value));
+  if (!match) return null;
+  const hours = Number(match[1]);
+  return hours <= 23 ? hours * 60 + Number(match[2]) : null;
 }
 
 /**

@@ -59,23 +59,23 @@ test('C: all 62 duties reach the Dienste sheet, in plan order and unique', { ski
   assert.equal(built.statistics.serviceCount, 62);
 });
 
-test('C: the Dienstplan sheet carries the classified rows and drops the page footers', { skip }, async () => {
+test('C: the Dienstplan sheet carries 641 fachliche rows and excludes page footers', { skip }, async () => {
   const built = await projection();
-  // 656 activity rows = 629 activities + 12 interruption lines + 15 page footers.
+  // 629 activity rows + 12 structured interruption lines; technical page footers are excluded.
   assert.equal(sheetOf(built, 'Dienstplan').rows.length, 641, '629 activities + 12 interruptions');
   assert.equal(built.statistics.activityCount, 641);
+  assert.equal(values(built, 'Dienstplan', 'Tätigkeit').filter(value => /^Seite \d+ von \d+$/i.test(String(value).trim())).length, 0);
+  assert.equal(values(built, 'Dienstplan', 'Tätigkeit').filter(value => /^Dienstunterbrechung$/i.test(String(value).trim())).length, 12);
+  assert.equal(values(built, 'Dienste', 'Dienstnummer').length, 62);
   for (const value of values(built, 'Dienstplan', 'Tätigkeit')) {
     assert.doesNotMatch(String(value), /^Seite \d+ von \d+$/, 'no page footer became an activity row');
   }
 });
 
-test('C: the 15 dropped footer rows are reported rather than silently lost', { skip }, async () => {
+test('C: page footers create neither activity rows nor import warnings', { skip }, async () => {
   const built = await projection();
   const dropped = built.warnings.filter(warning => warning.code === MODEL_WARNING_CODES.ZEILE_NICHT_ZUGEORDNET);
-  assert.equal(dropped.length, 15, 'one hint per page footer');
-  for (const warning of dropped) {
-    assert.ok(!String(warning.message).includes('Seite 1 von 15'), 'the raw text is not repeated');
-  }
+  assert.equal(dropped.length, 0, 'footers are filtered before activity projection');
 });
 
 test('C: duty numbers, times and places arrive as printed', { skip }, async () => {
@@ -181,8 +181,8 @@ test('C: the hardening warnings are projected as neutral import hints', { skip }
   const codes = built.warnings.reduce((map, warning) => {
     map[warning.code] = (map[warning.code] || 0) + 1; return map;
   }, {});
-  assert.equal(codes.NON_TABULAR_ANNOTATION, 15, 'the 15 hardening annotations');
-  assert.equal(codes.AMBIGUOUS_GENERIC_DUTY, 1, 'and the one ambiguous duty');
+  assert.equal(codes.NON_TABULAR_ANNOTATION || 0, 0, 'technical page footers are not hardening annotations');
+  assert.equal(codes.AMBIGUOUS_GENERIC_DUTY, 1, 'the one ambiguous duty remains reported');
   assert.equal(built.statistics.warningCount, built.warnings.length);
   const hints = sheetOf(built, 'Importhinweise');
   assert.equal(hints.rows.length, built.warnings.length);

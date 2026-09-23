@@ -106,9 +106,10 @@ test('F: routing sends xlsx to the Umlauftafel loader and pdf to the PDF path', 
   }
 });
 
-test('a non-pdf non-xlsx selection hides the status', async () => {
+test('a non-pdf non-xlsx selection is visibly rejected', async () => {
   const status = statusEl();
   const r = await handleImport({ name: 'notes.txt', type: 'text/plain' }, status);
   assert.equal(r, null);
-  assert.equal(status.hidden, true);
+  assert.equal(status.hidden, false);
+  assert.match(status.textContent, /Dateityp wird nicht unterstützt/);
 });
