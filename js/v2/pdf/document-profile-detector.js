@@ -18,7 +18,7 @@ export const PDF_DOCUMENT_PROFILES = Object.freeze({
   }),
   beu: Object.freeze({
     id: 'beu-stadtbus-v1',
-    label: 'BEU Stadtbus Mo–Fr (Schule)'
+    label: 'BEU Stadtbus-Dienstplan'
   }),
   jnvUmlauftafel: Object.freeze({
     id: 'jnv-umlauftafel-pdf-v1',
@@ -36,13 +36,23 @@ function hasTableHeader(text) {
   return TABLE_HEADERS.every(header => text.includes(header));
 }
 
+function hasIndependentServiceData(text) {
+  const headerPattern = new RegExp(TABLE_HEADERS.map(escapeRegExp).join('\\s+'), 'g');
+  const body = text.replace(headerPattern, ' ');
+  return /\b(?:Aufrüsten|Abrüsten|Mitfahrt|Vorbereitung\w*|Nachbereitung\w*|Wegezeit|Pause|Dienstunterbrechung|Dienst)\b/i.test(body);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Classifies only the currently supported document profiles. This intentionally
  * returns no schedule data and performs no business analysis.
  */
 export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   const normalized = normalizePdfText(text);
-  const title = normalized.match(/Dienste\s+(?:Regionalbus|Stadtbus)\s+Montag\s+bis\s+Freitag(?:\s+\((?:Ferien|Schule)\))?,\s+ab\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
+  const title = normalized.match(/Dienste\s+(?:Regionalbus|Stadtbus|Straßenbahn|Tram)\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
   const tableHeaderFound = hasTableHeader(normalized);
 
   // Umlauftafeln have no ten-column Dienstübersicht header. Classification is
@@ -84,10 +94,29 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
     };
   }
 
-  const beuSignals = [
-    /Dienste Stadtbus Montag bis Freitag(?: \(Schule\))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
+  const tramSignals = [
+    /Dienste\s+(?:Straßenbahn|Tram)\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/.test(normalized),
     tableHeaderFound,
-    /Aufrüsten|Abrüsten|Mitfahrt|Vorbereitung/.test(normalized)
+    hasIndependentServiceData(normalized)
+  ];
+
+  if (tramSignals.every(Boolean)) {
+    return {
+      status: 'supported',
+      // Tram is an additive vehicle family on the established JNV ten-column
+      // schedule path; keep the single central profile for this document type.
+      profile: PDF_DOCUMENT_PROFILES.beu,
+      documentFamily: 'tram',
+      title,
+      pageCount,
+      signals: { tableHeaderFound, tramSignals }
+    };
+  }
+
+  const beuSignals = [
+    /Dienste Stadtbus\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/.test(normalized),
+    tableHeaderFound,
+    hasIndependentServiceData(normalized)
   ];
 
   if (beuSignals.every(Boolean)) {
@@ -104,6 +133,6 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
     status: 'unsupported',
     title,
     pageCount,
-    signals: { tableHeaderFound, jesSignals, beuSignals }
+    signals: { tableHeaderFound, jesSignals, tramSignals, beuSignals }
   };
 }

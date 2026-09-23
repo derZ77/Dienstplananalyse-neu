@@ -43,14 +43,22 @@ export function isWagenkarteDienstSheet(sheet) {
 export function projectWagenkarteWorkbook(workbook, { sourceName = '', organization = 'JES' } = {}) {
   const sheets = Array.isArray(workbook?.sheets) ? workbook.sheets : [];
   const dienstSheets = sheets.filter(isWagenkarteDienstSheet);
-  const headerText = dienstSheets.map(sheet => rowText(sheet.rows?.[0])).filter(Boolean).join(' ');
-  const validFrom = normalizeValidFrom(headerValue(dienstSheets[0]?.rows, 'Gültig ab:') ?? dienstSheets[0]?.rows?.[2]?.[3]);
-  const validity = resolveCanonicalValidity({
-    headerText,
-    documentMetadata: validFrom ? { validFrom } : null,
-    fileName: sourceName
+  const serviceEvidence = dienstSheets.map(sheet => {
+    const rows = sheet.rows;
+    const headerText = serviceValidityLabel(rows);
+    const validFrom = normalizeValidFrom(headerValue(rows, 'Gültig ab:') ?? rows?.[2]?.[3]);
+    const validity = resolveCanonicalValidity({
+      headerText,
+      documentMetadata: validFrom ? { validFrom } : null,
+      fileName: sourceName
+    });
+    const dayQualifier = parseServiceDayQualifier(headerText);
+    return { validity: { ...validity, dayQualifier }, headerText };
   });
-  const services = dienstSheets.map((sheet, index) => projectService(sheet, index, validity));
+  // A workbook-level summary may contain only facts shared by every service
+  // sheet. Per-sheet qualifiers remain attached to their own service below.
+  const validity = mergeSharedValidity(serviceEvidence.map(evidence => evidence.validity));
+  const services = dienstSheets.map((sheet, index) => projectService(sheet, index, serviceEvidence[index].validity));
 
   return {
     type: 'VehicleCardSchedule',
@@ -63,18 +71,183 @@ export function projectWagenkarteWorkbook(workbook, { sourceName = '', organizat
   };
 }
 
+function serviceValidityLabel(rows) {
+  const serviceNumber = clean(headerValue(rows, WAGENKARTE_HEADER) ?? rows?.[0]?.[2]);
+  return (Array.isArray(rows?.[0]) ? rows[0] : [])
+    .map(clean)
+    .filter(value => value && value !== WAGENKARTE_HEADER && value !== serviceNumber)
+    .join(' ');
+}
+
+function parseServiceDayQualifier(label) {
+  const value = clean(label);
+  const patterns = [
+    ['TUESDAY_FRIDAY', /^(?:dienstag\s*(?:-|–|bis)\s*freitag|di\s*(?:-|–)\s*fr)(?:\b|\s*\()/i],
+    ['TUESDAY_WEDNESDAY_THURSDAY_FRIDAY', /^(?:dienstag\s*,\s*mittwoch\s*,\s*donnerstag\s*,\s*freitag|di\s*,\s*mi\s*,\s*do\s*,\s*fr)(?:\b|\s*\()/i],
+    ['MON_TUE_WED_FRI', /^(?:montag\s*,\s*dienstag\s*,\s*mittwoch\s*,\s*freitag|mo\s*,\s*di\s*,\s*mi\s*,\s*fr)(?:\b|\s*\()/i],
+    ['MON_THU', /^(?:montag\s*(?:-|–|bis)\s*donnerstag|mo\s*(?:-|–)\s*do)(?:\b|\s*\()/i],
+    ['THURSDAY_FRIDAY', /^(?:donnerstag\s*(?:\+|,|und|&)\s*freitag|do\s*(?:\+|,|&|-)\s*fr)(?:\b|\s*\()/i],
+    ['MON_FRI', /^(?:montag\s*(?:-|–|bis)\s*freitag|mo\s*(?:-|–)\s*fr)(?:\b|\s*\()/i],
+    ['MONDAY', /^(?:montag|mo)\b/i],
+    ['TUESDAY', /^(?:dienstag|di)\b/i],
+    ['WEDNESDAY', /^(?:mittwoch|mi)\b/i],
+    ['THURSDAY', /^(?:donnerstag|do)\b/i],
+    ['FRIDAY', /^(?:freitag|fr)\b/i],
+    ['SATURDAY', /^(?:samstag|sa)\b/i],
+    ['SUNDAY', /^(?:sonntag|so)\b/i]
+  ];
+  const match = patterns.find(([, expression]) => expression.test(value));
+  if (!match) return null;
+  const daysByCode = {
+    MON_THU: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY'],
+    TUESDAY_FRIDAY: ['TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+    TUESDAY_WEDNESDAY_THURSDAY_FRIDAY: ['TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+    MON_TUE_WED_FRI: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'FRIDAY'],
+    THURSDAY_FRIDAY: ['THURSDAY', 'FRIDAY'],
+    MON_FRI: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY']
+  };
+  return { code: match[0], label: value, days: daysByCode[match[0]] || [match[0]] };
+}
+
+function mergeSharedValidity(validities) {
+  const shared = key => {
+    const values = validities.map(validity => validity?.[key] ?? null);
+    return values.length && values.every(value => value === values[0]) ? values[0] : null;
+  };
+  const dayType = shared('dayType') || 'unknown';
+  const serviceRegime = shared('serviceRegime') || 'unknown';
+  const validFrom = shared('validFrom');
+  const rawLabel = shared('rawLabel');
+  return {
+    dayType,
+    dayTypeSource: dayType === 'unknown' ? 'UNKNOWN' : validities[0]?.dayTypeSource || 'UNKNOWN',
+    serviceRegime,
+    serviceRegimeSource: serviceRegime === 'unknown' ? 'UNKNOWN' : validities[0]?.serviceRegimeSource || 'UNKNOWN',
+    validFrom,
+    validFromSource: validFrom ? validities[0]?.validFromSource || 'UNKNOWN' : 'UNKNOWN',
+    rawLabel
+  };
+}
+
 function projectService(sheet, ordinal, validity) {
   const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
   const sheetName = clean(sheet?.name) || `Dienstblatt ${ordinal + 1}`;
+  const headers = rows.map((row, index) => (row || []).some(value => clean(value) === WAGENKARTE_HEADER) ? index : -1).filter(index => index >= 0);
+  const sectionStarts = headers.length ? headers : [0];
+  const physicalStartRow = Number.isInteger(sheet?.startRow) ? sheet.startRow : 1;
+  const physicalSections = sectionStarts.map((start, index) => {
+    const end = (sectionStarts[index + 1] ?? rows.length) - 1;
+    return projectServiceSection(rows.slice(start, end + 1), {
+      sheetName, sectionIndex: index, serviceOrdinal: ordinal, validity,
+      headerRow: physicalStartRow + start, endRow: physicalStartRow + end,
+      sourceRowOffset: physicalStartRow + start - 1,
+      hasNextSection: index < sectionStarts.length - 1
+    });
+  });
+  const sections = mergePhysicalContinuations(physicalSections);
+  const first = sections[0] || {};
+  const multiSection = sections.length > 1;
+  return {
+    serviceId: first.serviceId || `wagenkarte-service:${ordinal + 1}`,
+    serviceNumber: first.serviceNumber || clean(headerValue(rows, WAGENKARTE_HEADER) ?? rows?.[0]?.[3]),
+    runId: multiSection ? null : first.runId || null,
+    sheetName,
+    validity: multiSection ? validity : first.validity,
+    shiftStart: multiSection ? null : first.shiftStart,
+    shiftEnd: multiSection ? null : first.shiftEnd,
+    shiftDuration: multiSection ? null : first.shiftDuration,
+    paidTime: multiSection ? null : first.paidTime,
+    officialDrivingTime: multiSection ? null : first.officialDrivingTime,
+    officialL5: multiSection ? null : first.officialL5,
+    segments: multiSection ? [] : first.segments || [],
+    breaks: multiSection ? [] : first.breaks || [],
+    interruptions: multiSection ? [] : first.interruptions || [],
+    additionalTimes: multiSection ? emptyAdditionalTimes() : first.additionalTimes || emptyAdditionalTimes(),
+    sections,
+    source: { sourceType: 'excel', sheetName, row: physicalStartRow, ref: sheet?.ref || null }
+  };
+}
+
+function mergePhysicalContinuations(physicalSections) {
+  const semanticSections = [];
+  for (const [index, physical] of physicalSections.entries()) {
+    const previous = semanticSections.at(-1);
+    if (previous && sameSemanticSection(previous, physical)) {
+      mergeIntoSemanticSection(previous, physical);
+    } else {
+      semanticSections.push({ ...physical, sourceRanges: [physicalSourceRange(physical, index === 0 ? 'DOCUMENT_START' : semanticBoundaryReason(previous, physical))] });
+    }
+  }
+  return semanticSections;
+}
+
+function physicalSourceRange(section, semanticBoundaryBefore) {
+  return {
+    ...section.source,
+    physicalBoundaryBefore: section.source.sectionIndex === 0 ? 'INITIAL_HEADER' : 'REPEATED_HEADER',
+    semanticBoundaryBefore,
+    dayQualifier: section.validity?.dayQualifier || null,
+    officialL5Minutes: section.officialL5?.minutes ?? null
+  };
+}
+
+function semanticBoundaryReason(previous, current) {
+  if (!previous) return 'DOCUMENT_START';
+  if (previous.validity?.dayQualifier?.code !== current.validity?.dayQualifier?.code
+    || clean(previous.validity?.dayQualifier?.label) !== clean(current.validity?.dayQualifier?.label)) return 'DAY_QUALIFIER_CHANGED';
+  if (previous.officialL5?.minutes !== current.officialL5?.minutes) return 'OFFICIAL_L5_CHANGED';
+  if (previous.runId && current.runId && previous.runId !== current.runId) return 'VARIANT_CHANGED';
+  if (previous.shiftStart?.timelineMinutes !== current.shiftStart?.timelineMinutes
+    || previous.shiftEnd?.timelineMinutes !== current.shiftEnd?.timelineMinutes) return 'SHIFT_CHANGED';
+  return 'STRUCTURED_SECTION_CHANGE';
+}
+
+function sameSemanticSection(left, right) {
+  const qualifierKey = section => {
+    const qualifier = section.validity?.dayQualifier;
+    return qualifier ? `${qualifier.code}|${clean(qualifier.label).toLocaleLowerCase()}` : '';
+  };
+  return left.serviceNumber === right.serviceNumber
+    && qualifierKey(left) === qualifierKey(right)
+    && !(left.runId && right.runId && left.runId !== right.runId)
+    && (left.shiftStart?.timelineMinutes ?? null) === (right.shiftStart?.timelineMinutes ?? null)
+    && (left.shiftEnd?.timelineMinutes ?? null) === (right.shiftEnd?.timelineMinutes ?? null)
+    && (left.officialL5?.minutes ?? null) === (right.officialL5?.minutes ?? null);
+}
+
+function mergeIntoSemanticSection(target, continuation) {
+  target.sourceRanges.push(physicalSourceRange(continuation, 'CONTINUATION'));
+  target.segments = [...target.segments, ...continuation.segments].sort(byTimeline);
+  target.breaks = [...target.breaks, ...continuation.breaks].sort(byTimeline);
+  target.interruptions = [...target.interruptions, ...continuation.interruptions].sort(byTimeline);
+  for (const key of Object.keys(target.additionalTimes || {})) {
+    target.additionalTimes[key] = [...(target.additionalTimes[key] || []), ...(continuation.additionalTimes?.[key] || [])].sort(byTimeline);
+  }
+  target.source.endRow = continuation.source.endRow;
+  target.warnings = [...new Set([...(target.warnings || []), ...(continuation.warnings || [])])];
+  target.unresolvedTrips = [...(target.unresolvedTrips || []), ...(continuation.unresolvedTrips || [])];
+  target.assignmentStatus = target.warnings.length ? 'UNRESOLVED' : 'RESOLVED';
+  target.incompleteTrip = target.warnings.length > 0;
+  if (target.incompleteTrip) {
+    target.tripTime = { minutes: null, value: null };
+  } else {
+    const mergedMinutes = (target.tripTime?.minutes || 0) + (continuation.tripTime?.minutes || 0);
+    target.tripTime = { minutes: mergedMinutes, value: formatDuration(mergedMinutes) };
+  }
+}
+
+function projectServiceSection(rows, { sheetName, sectionIndex, serviceOrdinal, validity, headerRow, endRow, sourceRowOffset, hasNextSection }) {
   const serviceNumber = clean(headerValue(rows, WAGENKARTE_HEADER) ?? rows?.[0]?.[3]);
+  const headerText = serviceValidityLabel(rows);
+  const sectionValidity = { ...resolveCanonicalValidity({ headerText, documentMetadata: validity?.validFrom ? { validFrom: validity.validFrom } : null }), dayQualifier: parseServiceDayQualifier(headerText) };
   const runId = findRunId(rows);
-  const serviceId = `wagenkarte-service:${serviceNumber || ordinal + 1}${runId ? `:${runId}` : ''}`;
+  const serviceId = `wagenkarte-service:${serviceNumber || serviceOrdinal + 1}${runId ? `:${runId}` : ''}`;
   const shiftStart = clock(headerValue(rows, 'Dienstbeginn:') ?? rows?.[3]?.[3]);
   const shiftEnd = timelineClock(headerValue(rows, 'Dienstende:') ?? rows?.[4]?.[3], shiftStart.timelineMinutes);
   const shiftDuration = duration(headerValue(rows, 'Schichtdauer:') ?? rows?.[2]?.[11]);
   const paidTime = duration(headerValue(rows, 'Bezahlte Zeit:') ?? rows?.[3]?.[11]);
   const officialDrivingTime = duration(headerValue(rows, 'Lenkzeit') ?? rows?.[4]?.[11]);
-  const observations = readSheetObservations(rows, sheetName);
+  const { observations, incompleteTrip, unresolvedTrips } = readSheetObservations(rows, sheetName, sourceRowOffset);
   const normalized = normalizeObservationTimeline(observations, shiftStart.timelineMinutes);
   const segments = normalized.filter(item => item.kind === 'segment').map(item => item.value);
   const activitySegments = normalized.filter(item => item.kind === 'activity').map(item => item.value);
@@ -86,40 +259,67 @@ function projectService(sheet, ordinal, validity) {
     if (key) additionalTimes[key].push(activity);
   }
 
-  return {
+  const tripMinutes = segments.filter(item => item.type === 'LINE_SERVICE' || item.type === 'DEADHEAD')
+    .reduce((sum, item) => sum + (Number.isInteger(item.duration?.minutes) ? item.duration.minutes : 0), 0);
+  const warnings = incompleteTrip && hasNextSection ? ['SECTION_BOUNDARY_AMBIGUOUS'] : [];
+  const section = {
     serviceId,
     serviceNumber,
     runId: runId || null,
     sheetName,
-    validity,
+    validity: sectionValidity.dayType !== 'unknown' || sectionValidity.dayQualifier ? sectionValidity : validity,
     shiftStart,
     shiftEnd,
     shiftDuration,
     paidTime,
-    officialDrivingTime: { ...officialDrivingTime, source: { sourceType: 'excel', sheetName, field: 'Lenkzeit' } },
+    officialL5: { ...officialDrivingTime, source: { sourceType: 'excel', sheetName, field: 'Lenkzeit', cell: `L${headerRow + 4}`, headerRow } },
+    officialDrivingTime: { ...officialDrivingTime, source: { sourceType: 'excel', sheetName, field: 'Lenkzeit', cell: `L${headerRow + 4}`, headerRow } },
     segments: [...segments, ...activitySegments].sort(byTimeline),
     breaks,
     interruptions,
     additionalTimes,
-    source: { sourceType: 'excel', sheetName, row: 1 }
+    source: { sourceType: 'excel', sheetName, row: headerRow, headerRow, endRow, sectionIndex, validitySource: { sourceType: 'excel', sheetName, row: headerRow, field: 'validity' }, l5Cell: `L${headerRow + 4}` },
+    tripTime: { minutes: warnings.length ? null : tripMinutes, value: warnings.length ? null : formatDuration(tripMinutes) },
+    warnings,
+    unresolvedTrips: warnings.length ? unresolvedTrips : [],
+    assignmentStatus: warnings.length ? 'UNRESOLVED' : 'RESOLVED',
+    incompleteTrip: warnings.length > 0
   };
+  return section;
 }
+
+function emptyAdditionalTimes() { return Object.fromEntries(Object.values(ADDITIONAL_TIME_KEYS).map(key => [key, []])); }
+function formatDuration(minutes) { return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`; }
 
 /**
  * Extracts the three parallel Wagenkarten regions independently, then returns
  * their observations for the existing chronological normalizer. This is the
  * DOM-free counterpart of the legacy `extractWagenkarteStructuredData` flow.
  */
-function readSheetObservations(rows, sheetName) {
+function readSheetObservations(rows, sheetName, sourceRowOffset = 0) {
   const observations = [];
+  let incompleteTrip = false;
+  const unresolvedTrips = [];
   for (const region of WAGENKARTE_REGIONS) {
     const regionRows = rows.map((row, rowIndex) => ({ rowIndex, cells: (Array.isArray(row) ? row : []).slice(region.start, region.end + 1) }));
-    observations.push(...readRegionObservations(regionRows, sheetName, region));
+    const result = readRegionObservations(regionRows, sheetName, region, sourceRowOffset);
+    observations.push(...result.observations);
+    incompleteTrip ||= result.incompleteTrip && result.pendingTripRow >= rows.length - 1;
+    if (result.incompleteTrip && result.pendingTripRow >= rows.length - 1 && result.pendingTrip) {
+      unresolvedTrips.push({
+        type: result.pendingTrip.type,
+        line: result.pendingTrip.line,
+        trip: result.pendingTrip.trip,
+        rawLabel: result.pendingTrip.rawLabel,
+        status: 'SECTION_BOUNDARY_AMBIGUOUS',
+        source: source(sheetName, result.pendingTrip.row + sourceRowOffset, result.region)
+      });
+    }
   }
   // A Wagenkarte continues chronologically from its left region to its right
   // region. Rows repeat vertically in every region, so sorting by row would
   // interleave e.g. 04:xx, 07:xx and 10:xx events and corrupt driving blocks.
-  return observations;
+  return { observations, incompleteTrip, unresolvedTrips };
 }
 
 const WAGENKARTE_REGIONS = Object.freeze([
@@ -131,7 +331,7 @@ const WAGENKARTE_REGIONS = Object.freeze([
   { index: 2, start: 16, end: 22 }
 ]);
 
-function readRegionObservations(regionRows, sheetName, region) {
+function readRegionObservations(regionRows, sheetName, region, sourceRowOffset = 0) {
   const observations = [];
   let pendingTrip = null;
   let pendingTripType = 'LINE_SERVICE';
@@ -146,7 +346,8 @@ function readRegionObservations(regionRows, sheetName, region) {
       type: pendingTrip.type, line: pendingTrip.line, trip: pendingTrip.trip, course: null,
       start: first.time, end: last.time, duration: durationBetween(first.time, last.time),
       from: first.location, to: last.location, stops: pendingTrip.stops,
-      rawLabel: pendingTrip.rawLabel, source: source(sheetName, pendingTrip.row, region.index)
+      rawLabel: pendingTrip.rawLabel, source: source(sheetName, pendingTrip.row + sourceRowOffset, region.index),
+      sourceRange: { startRow: first.sourceRow, endRow: last.sourceRow }
     } });
     pendingTrip = null;
   };
@@ -170,20 +371,21 @@ function readRegionObservations(regionRows, sheetName, region) {
     for (const activity of activities) {
       if (activity.type === 'DEADHEAD_MARKER') { pendingTripType = 'DEADHEAD'; lastDeadheadMarkerRow = rowIndex; }
       else if (activity.type === 'LINE_MARKER') lastLineMarkerRow = rowIndex;
-      else if (activity.type !== 'ROUTE_MARKER') observations.push({ kind: 'activity', row: rowIndex, region: region.index, value: { ...activity, source: source(sheetName, rowIndex, region.index) } });
+      else if (activity.type !== 'ROUTE_MARKER') observations.push({ kind: 'activity', row: rowIndex + sourceRowOffset, region: region.index, value: { ...activity, source: source(sheetName, rowIndex + sourceRowOffset, region.index) } });
     }
     if (lineTrip && lastLineMarkerRow !== null && rowIndex - lastLineMarkerRow <= 2) {
       pendingTrip = { type: pendingTripType, line: lineTrip.line, trip: lineTrip.trip, rawLabel: `${lineTrip.line}/${lineTrip.trip}`, row: rowIndex, lastRow: null, stops: [] };
       pendingTripType = 'LINE_SERVICE'; lastDeadheadMarkerRow = null; continue;
     }
     if (!pendingTrip && stop && pendingTripType === 'DEADHEAD' && lastDeadheadMarkerRow !== null && rowIndex > lastDeadheadMarkerRow && rowIndex - lastDeadheadMarkerRow <= 3) {
-      pendingTrip = { type: 'DEADHEAD', line: null, trip: null, rawLabel: 'Leerfahrt', row: rowIndex, lastRow: rowIndex, stops: [stop] };
+      pendingTrip = { type: 'DEADHEAD', line: null, trip: null, rawLabel: 'Leerfahrt', row: rowIndex, lastRow: rowIndex, stops: [{ ...stop, sourceRow: rowIndex + sourceRowOffset + 1 }] };
       pendingTripType = 'LINE_SERVICE'; lastDeadheadMarkerRow = null; continue;
     }
-    if (pendingTrip && stop) { pendingTrip.stops.push(stop); pendingTrip.lastRow = rowIndex; }
+    if (pendingTrip && stop) { pendingTrip.stops.push({ ...stop, sourceRow: rowIndex + sourceRowOffset + 1 }); pendingTrip.lastRow = rowIndex; }
   }
-  flush();
-  return observations;
+  const incompleteTrip = Boolean(pendingTrip && !pendingTrip.stops?.length);
+  if (pendingTrip?.stops?.length) flush();
+  return { observations, incompleteTrip, pendingTripRow: pendingTrip?.row ?? null, pendingTrip, region: region.index };
 }
 
 function parseActivity(text) {

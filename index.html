@@ -602,6 +602,7 @@
 					<option value="mo_fr">Montag–Freitag</option>
 					<option value="saturday">Samstag</option>
 					<option value="sunday">Sonntag</option>
+					<option value="sunday_holiday">Sonn- und Feiertag</option>
 					<option value="unknown">Unbekannt</option>
 				</select>
 				<div id="schedule-validity-source"></div>
@@ -677,7 +678,7 @@
 
 		<!-- Block 7 -->
 		<div class="block">
-			<h2>7. Lenkzeit real vor/nach Pause laut Wagenkarte</h2>
+			<h2>7. Fahrtenzeit und offizieller L5 laut Wagenkarte</h2>
 			<div id="real-driving-time-result" class="result">Warte...</div>
 		</div>
 
@@ -1643,19 +1644,6 @@
 		}
 
 		/* --- Formatdetektor --- */
-		function detectWorkbookFormat(wb) {
-			// Wagenkarte: erstes Sheet prüfen, ob B1 "Dienst-Nr.:" enthält
-			const firstSheet = wb.Sheets[wb.SheetNames[0]];
-			if (!firstSheet) return 'tabular';
-
-			const b1 = firstSheet['B1'];
-			if (b1 && typeof b1.v === 'string' && b1.v.trim() === 'Dienst-Nr.:') {
-				return 'wagenkarte';
-			}
-
-			return 'tabular';
-		}
-
 		function getWagenkarteCellValue(cell) {
 			if (!cell) return '';
 			if (typeof cell.w === 'string' && cell.w.trim()) return cell.w.trim();
@@ -1921,54 +1909,6 @@
 				entries.forEach(entry => {
 					text += `ID ${entry.dienstNr} ${entry.startZeit} ${entry.startOrt} — ${entry.endZeit} ${entry.endOrt}\n`;
 				});
-				text += '\n';
-			});
-
-			return text.trim();
-		}
-
-		function buildWagenkarteRealDrivingTimeText(dienste) {
-			if (!dienste.length) {
-				return 'Keine Wagenkarten-Dienste erkannt.';
-			}
-
-			const sortedDienste = dienste.slice().sort((a, b) => parseInt(a.dienstNr, 10) - parseInt(b.dienstNr, 10));
-			let text =
-				'Lenkzeit real vor/nach Pause laut Wagenkarte:\n\n' +
-				'Hinweis:\n' +
-				'Die berechnete Lenkzeit vor/nach Pause zählt nur Linienfahrten und Leerfahrten.\n' +
-				'Wendezeit, Bereitstellungszeit, Vor-/Nachbereitung, Dienstbereitschaft sowie Pausen/Dienstunterbrechungen werden nicht in diese berechnete Fahr-/Leerfahrzeit eingerechnet.\n' +
-				'Die offizielle Lenkzeit laut Wagenkarte aus L5 wird separat angezeigt.\n\n';
-
-			sortedDienste.forEach(dienst => {
-				const analyse = dienst.lenkzeitAnalyse || {};
-				const zusatz = analyse.zusatzzeiten || {};
-				text += `ID ${dienst.dienstNr}:\n`;
-				text += `Lenkzeit gesamt laut Wagenkarte: ${dienst.lenkzeitKopf || '-'}\n`;
-
-				if (analyse.relevantePause && analyse.lenkzeitVorPauseMin != null && analyse.lenkzeitNachPauseMin != null) {
-					text += `Lenkzeit vor Pause/Dienstunterbrechung: ${formatDuration(analyse.lenkzeitVorPauseMin)}\n`;
-					text += `Lenkzeit nach Pause/Dienstunterbrechung: ${formatDuration(analyse.lenkzeitNachPauseMin)}\n`;
-					text += `Relevante Unterbrechung: ${analyse.relevantePause.typ} ${analyse.relevantePause.start}\u2013${analyse.relevantePause.end} (${formatDuration(analyse.relevantePause.dauerMin || 0)})\n`;
-				} else {
-					text += 'Keine relevante Pause/Dienstunterbrechung gefunden.\n';
-				}
-
-				text += `Max. Lenkzeitblock: ${formatDuration(analyse.maxBlockMin || 0)}\n`;
-				text += `Prüfung 04:30h: ${(analyse.pruefung450Ok === false) ? 'ÜBERSCHREITUNG' : 'OK'}\n`;
-				text += 'Zusätzlich erkannte Zeiten, nicht in berechneter Fahr-/Leerfahrzeit enthalten:\n';
-				text += `Wendezeit: ${formatDuration(zusatz.wendezeitMin || 0)}\n`;
-				text += `Bereitstellungszeit: ${formatDuration(zusatz.bereitstellungszeitMin || 0)}\n`;
-				text += `Vorbereiten: ${formatDuration(zusatz.vorbereitenMin || 0)}\n`;
-				text += `Nachbereiten: ${formatDuration(zusatz.nachbereitenMin || 0)}\n`;
-				text += `Dienstbereitschaft: ${formatDuration(zusatz.dienstbereitschaftMin || 0)}\n`;
-				text += `Arbeitsnahe Zusatzzeiten gesamt: ${formatDuration(analyse.zusatzzeitenArbeitsnahMin || 0)}\n`;
-				text += `Pausen/Dienstunterbrechungen: ${formatDuration((zusatz.unbezahltePauseMin || 0) + (zusatz.geteilterDienstMin || 0))}\n`;
-
-				if (analyse.warnHinweis) {
-					text += `${analyse.warnHinweis}\n`;
-				}
-
 				text += '\n';
 			});
 
@@ -2438,193 +2378,6 @@
 			};
 		}
 
-		function getWagenkarteTripDurationMin(trip) {
-			const startMin = parseTimeToMinutes(trip && trip.startZeit ? trip.startZeit : '');
-			const endMin = parseTimeToMinutes(trip && trip.endZeit ? trip.endZeit : '');
-			if (startMin == null || endMin == null) return null;
-			return diffMinutes(startMin, endMin);
-		}
-
-		function buildWagenkarteLenkzeitAnalyse(dienst) {
-			const relevanteFahrten = (dienst.fahrtenSortiert || dienst.fahrten || [])
-				.filter(fahrt => fahrt && (fahrt.typ === 'linienfahrt' || fahrt.typ === 'leerfahrt'))
-				.map(fahrt => ({
-					typ: fahrt.typ,
-					linie: fahrt.linie || '',
-					kurs: fahrt.kurs || '',
-					startZeit: fahrt.startZeit || '',
-					endZeit: fahrt.endZeit || '',
-					dauerMin: getWagenkarteTripDurationMin(fahrt)
-				}));
-
-			const relevantePausen = (dienst.pausen || [])
-				.filter(pause => pause && (pause.typ === 'unbezahlte Pause' || pause.typ === 'geteilter Dienst'))
-				.map(pause => ({
-					typ: pause.typ,
-					start: pause.start || '',
-					end: pause.end || '',
-					dauerMin: pause.dauerMin || 0,
-					rawText: pause.rawText || ''
-				}))
-				.sort((a, b) => {
-					const aMin = parseTimeToMinutes(a.start);
-					const bMin = parseTimeToMinutes(b.start);
-					if (aMin != null && bMin != null) return aMin - bMin;
-					if (aMin != null) return -1;
-					if (bMin != null) return 1;
-					return 0;
-				});
-
-			const zusatzzeiten = {
-				wendezeitMin: 0,
-				bereitstellungszeitMin: 0,
-				vorbereitenMin: 0,
-				nachbereitenMin: 0,
-				dienstbereitschaftMin: 0,
-				unbezahltePauseMin: 0,
-				geteilterDienstMin: 0,
-				sonstigeMin: 0
-			};
-
-			(dienst.aktivitaeten || []).forEach(activity => {
-				const duration = typeof activity.dauerMin === 'number' ? activity.dauerMin : 0;
-				switch (activity.typ) {
-					case 'Wendezeit':
-						zusatzzeiten.wendezeitMin += duration;
-						break;
-					case 'Bereitstellungszeit':
-						zusatzzeiten.bereitstellungszeitMin += duration;
-						break;
-					case 'Vorbereiten':
-						zusatzzeiten.vorbereitenMin += duration;
-						break;
-					case 'Nachbereiten':
-						zusatzzeiten.nachbereitenMin += duration;
-						break;
-					case 'Dienstbereitschaft':
-						zusatzzeiten.dienstbereitschaftMin += duration;
-						break;
-					case 'unbezahlte Pause':
-						zusatzzeiten.unbezahltePauseMin += duration;
-						break;
-					case 'geteilter Dienst':
-						zusatzzeiten.geteilterDienstMin += duration;
-						break;
-					case 'Leerfahrt':
-					case 'Umlauf':
-					case 'Linie / Fahrt-Nr.':
-						break;
-					default:
-						if (duration > 0) zusatzzeiten.sonstigeMin += duration;
-						break;
-				}
-			});
-
-			const zusatzzeitenArbeitsnahMin =
-				zusatzzeiten.wendezeitMin +
-				zusatzzeiten.bereitstellungszeitMin +
-				zusatzzeiten.vorbereitenMin +
-				zusatzzeiten.nachbereitenMin +
-				zusatzzeiten.dienstbereitschaftMin;
-
-			const berechnetMin = relevanteFahrten.reduce((sum, fahrt) => sum + (fahrt.dauerMin || 0), 0);
-			const kopfMin = parseTimeToMinutes(dienst.lenkzeitKopf || '');
-			const differenzMin = kopfMin == null ? null : berechnetMin - kopfMin;
-
-			const bloecke = [];
-			let currentBlock = null;
-
-			relevanteFahrten.forEach((fahrt, index) => {
-				if (!currentBlock) {
-					currentBlock = {
-						startZeit: fahrt.startZeit,
-						endZeit: fahrt.endZeit,
-						dauerMin: fahrt.dauerMin || 0,
-						fahrten: [fahrt]
-					};
-				} else {
-					const prevFahrt = relevanteFahrten[index - 1];
-					const prevEndMin = parseTimeToMinutes(prevFahrt.endZeit);
-					const currentStartMin = parseTimeToMinutes(fahrt.startZeit);
-					const trenntBlock = relevantePausen.some(pause => {
-						const pauseStartMin = parseTimeToMinutes(pause.start);
-						const pauseEndMin = parseTimeToMinutes(pause.end);
-						if (prevEndMin == null || currentStartMin == null || pauseStartMin == null || pauseEndMin == null) {
-							return false;
-						}
-						return pauseStartMin >= prevEndMin && pauseEndMin <= currentStartMin;
-					});
-
-					if (trenntBlock) {
-						bloecke.push(currentBlock);
-						currentBlock = {
-							startZeit: fahrt.startZeit,
-							endZeit: fahrt.endZeit,
-							dauerMin: fahrt.dauerMin || 0,
-							fahrten: [fahrt]
-						};
-					} else {
-						currentBlock.endZeit = fahrt.endZeit;
-						currentBlock.dauerMin += fahrt.dauerMin || 0;
-						currentBlock.fahrten.push(fahrt);
-					}
-				}
-			});
-
-			if (currentBlock) bloecke.push(currentBlock);
-
-			const maxBlockMin = bloecke.reduce((max, block) => Math.max(max, block.dauerMin || 0), 0);
-			const relevantePause = relevantePausen.reduce((longest, pause) => {
-				if (!longest) return pause;
-				return (pause.dauerMin || 0) > (longest.dauerMin || 0) ? pause : longest;
-			}, null);
-
-			let lenkzeitVorPauseMin = null;
-			let lenkzeitNachPauseMin = null;
-
-			if (relevantePause) {
-				const pauseStartMin = parseTimeToMinutes(relevantePause.start);
-				const pauseEndMin = parseTimeToMinutes(relevantePause.end);
-
-				if (pauseStartMin != null && pauseEndMin != null) {
-					lenkzeitVorPauseMin = 0;
-					lenkzeitNachPauseMin = 0;
-
-					bloecke.forEach(block => {
-						const blockEndMin = parseTimeToMinutes(block.endZeit);
-						const blockStartMin = parseTimeToMinutes(block.startZeit);
-						if (blockEndMin != null && blockEndMin <= pauseStartMin) {
-							lenkzeitVorPauseMin += block.dauerMin || 0;
-						} else if (blockStartMin != null && blockStartMin >= pauseEndMin) {
-							lenkzeitNachPauseMin += block.dauerMin || 0;
-						}
-					});
-				}
-			}
-
-			const pruefung450Ok = maxBlockMin <= 270;
-			const warnHinweis = differenzMin != null && Math.abs(differenzMin) > 10
-				? 'Hinweis: Die berechnete Fahr-/Leerfahrzeit weicht vom L5-Kopfwert ab. L5 kann je nach Wagenkarte weitere Zeitarten enthalten. Bitte fachlich prüfen.'
-				: '';
-
-			return {
-				berechnetMin,
-				kopfMin,
-				differenzMin,
-				zusatzzeiten,
-				zusatzzeitenArbeitsnahMin,
-				lenkzeitVorPauseMin,
-				lenkzeitNachPauseMin,
-				fahrten: relevanteFahrten,
-				pausen: relevantePausen,
-				relevantePause,
-				bloecke,
-				maxBlockMin,
-				pruefung450Ok,
-				warnHinweis
-			};
-		}
-
 		function extractWagenkarteStructuredData(ws) {
 			const entries = buildWagenkarteEntries(ws);
 			const pages = detectWagenkartePages(entries);
@@ -2780,7 +2533,6 @@
 			const dienstende = getCell('D5');
 			const schichtdauer = getCell('L3');
 			const bezahlteZeit = getCell('L4');
-			const lenkzeitKopf = getCell('L5');
 
 			if (!dienstNr) return; // Kein gültiger Dienst
 
@@ -2806,7 +2558,6 @@
 				dienstende: dienstende ? String(dienstende).trim() : '',
 				schichtdauer: schichtdauer ? String(schichtdauer).trim() : '',
 				bezahlteZeit: bezahlteZeit ? String(bezahlteZeit).trim() : '',
-				lenkzeitKopf: lenkzeitKopf ? String(lenkzeitKopf).trim() : '',
 				pausen: pausen,
 				unbezahltePauseGesamtMin: unbezahltePauseGesamtMin,
 				fahrten: structuredData.fahrten,
@@ -2815,7 +2566,6 @@
 				fahrtenSortiert: structuredData.fahrten.slice().sort(compareWagenkarteTrips),
 				seiten: structuredData.seiten
 			};
-			dienst.lenkzeitAnalyse = buildWagenkarteLenkzeitAnalyse(dienst);
 			dienst.dienstteilAnalyse = buildWagenkarteDienstteilAnalyse(dienst);
 			dienst.wagenkartePausenAnalyse = buildWagenkartePausenAnalyse(dienst);
 			dienst.zeitGrenzenDiagnose = buildWagenkarteZeitGrenzenDiagnose(dienst);
@@ -2942,9 +2692,6 @@
 		// Block 6: Arbeitszeit-/Dienstteilstücke vor/nach Pause
 		const segmentText = buildWagenkarteSegmentText(dienste);
 
-		// Block 7: Lenkzeit real vor/nach Pause
-		const realDrivingTimeText = buildWagenkarteRealDrivingTimeText(dienste);
-
 		// Block 8: Schichtzuweisung anhand D4
 		const isWeekendPlan = (
 			zeitraumText.includes('Samstag') || zeitraumText.includes('Sonntag')
@@ -3034,7 +2781,6 @@
 			longText,
 			locText,
 			segmentText,
-			realDrivingTimeText,
 			shiftText,
 			shiftHtml,
 			routeText,
@@ -3049,70 +2795,12 @@
 
 
 		document.getElementById('file-input').addEventListener('change', function() {
-			const file = this.files[0];
+			const file = this.files && this.files[0];
 			// Phase 5.2: parsing and all block writes are performed by the shared
 			// CanonicalSchedule orchestrator in the module bootstrap below. Keep this
 			// legacy listener only for the user-visible file selection status.
-			if (file) {
-				document.getElementById('file-result').textContent = `Datei: ${file.name}`;
-				return;
-			}
-			const blocks = [
-				'plan-type-result',
-				'count-result',
-				'shared-result',
-				'reserve-result',
-				'long-result',
-				'loc-result',
-				'segment-result',
-				'real-driving-time-result',
-				'shift-result',
-				'route-result',
-				'pause-result'
-			];
 			document.getElementById('file-result').textContent =
 				file ? `Datei: ${file.name}` : 'Keine Datei ausgewählt.';
-			blocks.forEach(id =>
-				document.getElementById(id).textContent = file ? 'Warte auf Auswertung...' : '-'
-			);
-			if (!file) return;
-
-			const reader = new FileReader();
-			reader.onload = function(e) {
-				const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-
-				// Format erkennen und passenden Parser wählen
-				const format = detectWorkbookFormat(wb);
-				let result;
-
-				if (format === 'wagenkarte') {
-					result = parseWagenkarte(wb);
-				} else {
-					const rows = XLSX.utils.sheet_to_json(
-						wb.Sheets[wb.SheetNames[0]], { header: 1 }
-					);
-					result = parseTabular(rows, {});
-				}
-
-				// DOM-Ausgabe
-				document.getElementById('plan-type-result').textContent = result.planTypeText;
-				const planDisplay = document.getElementById('current-plan-display');
-				if (planDisplay) {
-					planDisplay.textContent = `Aktueller Plan: ${result.planHinweis}`;
-				}
-				document.getElementById('count-result').textContent = result.countText;
-				document.getElementById('shared-result').textContent = result.sharedText;
-				document.getElementById('reserve-result').textContent = result.reserveText;
-				document.getElementById('long-result').textContent = result.longText;
-				document.getElementById('loc-result').textContent = result.locText;
-				document.getElementById('segment-result').textContent = result.segmentText;
-				document.getElementById('real-driving-time-result').textContent = result.realDrivingTimeText;
-				document.getElementById('shift-result').innerHTML = result.shiftHtml || escapeHtml(result.shiftText || '').replace(/\n/g, '<br>');
-				document.getElementById('route-result').textContent = result.routeText;
-				document.getElementById('pause-result').innerHTML = result.pauseHtml;
-			};
-
-			reader.readAsArrayBuffer(file);
 		});
 
 	</script>

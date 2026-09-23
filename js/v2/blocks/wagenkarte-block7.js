@@ -1,12 +1,12 @@
 /**
  * JES Wagenkarte Block 7 projection (Phase 9.7B).
  *
- * This is a direct migration of the legacy `buildWagenkarteLenkzeitAnalyse`
- * contract to the VehicleCardSchedule produced in Phase 9.7A. It deliberately
- * does not create CanonicalSchedule data and is not used for JNV Umlauftafeln.
+ * This projects observed trip intervals and independent official L5 values.
+ * It deliberately does not claim vehicle-motion-only real driving time or
+ * apply legal thresholds, create CanonicalSchedule data, or handle JNV cards.
  */
 
-const DRIVING_TYPES = new Set(['LINE_SERVICE', 'DEADHEAD']);
+const TRIP_SEGMENT_TYPES = new Set(['LINE_SERVICE', 'DEADHEAD']);
 const RELEVANT_BREAK_TYPES = new Set(['UNPAID_BREAK', 'SERVICE_INTERRUPTION']);
 const ADDITIONAL_TIME_KEYS = Object.freeze(['turnaround', 'provisioning', 'preparation', 'postprocessing', 'standby']);
 const text = value => String(value ?? '').trim();
@@ -14,14 +14,14 @@ const minutes = value => Number.isInteger(value?.minutes) ? value.minutes : null
 const timeline = value => Number.isInteger(value?.timelineMinutes) ? value.timelineMinutes : null;
 
 /**
- * Migrated legacy Lenkzeit calculation for exactly one JES vehicle-card service.
- * Only documented LINE_SERVICE and DEADHEAD segments contribute to calculated
- * driving time. A relevant recorded unpaid break or service interruption splits
+ * Calculate observed trip time for one Wagenkarten section.
+ * Only documented LINE_SERVICE and DEADHEAD intervals contribute to Fahrtenzeit.
+ * A relevant recorded unpaid break or service interruption splits
  * adjacent driving segments when it lies entirely in their time gap.
  */
 export function analyzeVehicleCardDrivingTime(service) {
-  const drivingSegments = (service?.segments || [])
-    .filter(segment => DRIVING_TYPES.has(segment?.type))
+  const tripSegments = (service?.segments || [])
+    .filter(segment => TRIP_SEGMENT_TYPES.has(segment?.type))
     .filter(segment => minutes(segment?.duration) !== null)
     .slice()
     .sort(byStart);
@@ -30,48 +30,53 @@ export function analyzeVehicleCardDrivingTime(service) {
     .filter(item => timeline(item?.start) !== null && timeline(item?.end) !== null)
     .slice()
     .sort(byStart);
-  const blocks = buildDrivingBlocks(drivingSegments, relevantBreaks);
-  const calculatedDrivingMinutes = drivingSegments.reduce((sum, segment) => sum + minutes(segment.duration), 0);
-  const officialDrivingMinutes = minutes(service?.officialDrivingTime);
-  const differenceMinutes = officialDrivingMinutes === null ? null : calculatedDrivingMinutes - officialDrivingMinutes;
+  const blocks = buildTripBlocks(tripSegments, relevantBreaks);
+  const observedTripMinutes = tripSegments.reduce((sum, segment) => sum + minutes(segment.duration), 0);
+  const officialL5Minutes = minutes(service?.officialL5 ?? service?.officialDrivingTime);
+  const tripTimeMinutes = Number.isInteger(service?.tripTime?.minutes) ? service.tripTime.minutes : observedTripMinutes;
+  const verifiedTripTimeMinutes = service?.assignmentStatus === 'UNRESOLVED' ? null : tripTimeMinutes;
+  const differenceMinutes = officialL5Minutes === null || verifiedTripTimeMinutes === null ? null : officialL5Minutes - verifiedTripTimeMinutes;
   const relevantBreak = longestBreak(relevantBreaks);
-  const [drivingBeforeRelevantBreakMinutes, drivingAfterRelevantBreakMinutes] = drivingAroundBreak(blocks, relevantBreak);
-  const maxDrivingBlockMinutes = blocks.reduce((maximum, block) => Math.max(maximum, block.drivingMinutes), 0);
+  const [tripBeforeRelevantBreakMinutes, tripAfterRelevantBreakMinutes] = tripAroundBreak(blocks, relevantBreak);
+  const maxContinuousTripBlockMinutes = blocks.reduce((maximum, block) => Math.max(maximum, block.tripMinutes), 0);
   const additionalTimes = summarizeAdditionalTimes(service, relevantBreaks);
 
   return {
     service,
-    drivingSegments,
+    tripSegments,
     relevantBreaks,
     blocks,
-    calculatedDrivingMinutes,
-    officialDrivingMinutes,
-    differenceMinutes,
+    tripTimeMinutes: verifiedTripTimeMinutes,
+    officialL5Minutes,
+    l5DifferenceMinutes: differenceMinutes,
+    realDrivingTime: 'UNKNOWN',
+    l5Components: { driving: 'UNKNOWN', turnaround: 'UNKNOWN', provision: 'UNKNOWN', other: 'UNKNOWN', unexplained: 'UNKNOWN' },
     relevantBreak,
-    drivingBeforeRelevantBreakMinutes,
-    drivingAfterRelevantBreakMinutes,
-    maxDrivingBlockMinutes,
-    drivingTimeLimitStatus: maxDrivingBlockMinutes <= 270 ? 'OK' : 'REVIEW_REQUIRED',
-    l5DifferenceNotice: differenceMinutes !== null && Math.abs(differenceMinutes) > 10
-      ? 'Hinweis: Die berechnete Fahr-/Leerfahrzeit weicht vom L5-Kopfwert ab. L5 kann je nach Wagenkarte weitere Zeitarten enthalten. Bitte fachlich prüfen.'
-      : null,
+    tripBeforeRelevantBreakMinutes,
+    tripAfterRelevantBreakMinutes,
+    maxContinuousTripBlockMinutes,
+    warnings: service?.warnings || [],
     additionalTimes
   };
 }
 
 /** Creates the legacy-facing Block-7 payload; the existing renderer owns markup. */
 export function createVehicleCardBlock7ViewModel(vehicleCardSchedule) {
-  const analyses = (vehicleCardSchedule?.services || [])
+  const sectionServices = (vehicleCardSchedule?.services || []).flatMap(service =>
+    Array.isArray(service?.sections) && service.sections.length
+      ? service.sections.map(section => ({ ...service, ...section, parentServiceNumber: service.serviceNumber }))
+      : [service]);
+  const analyses = sectionServices
     .map(analyzeVehicleCardDrivingTime)
     .sort((left, right) => compareServiceNumbers(left.service?.serviceNumber, right.service?.serviceNumber));
 
   const lines = [
-    'Lenkzeit real vor/nach Pause laut Wagenkarte:',
+    'Wagenkarten-Fahrtenzeiten und offizieller L5-Vergleich:',
     '',
     'Hinweis:',
-    'Die berechnete Lenkzeit vor/nach Pause zählt nur Linienfahrten und Leerfahrten.',
-    'Wendezeit, Bereitstellungszeit, Vor-/Nachbereitung, Dienstbereitschaft sowie Pausen/Dienstunterbrechungen werden nicht in diese berechnete Fahr-/Leerfahrzeit eingerechnet.',
-    'Die offizielle Lenkzeit laut Wagenkarte aus L5 wird separat angezeigt.',
+    'Fahrtenzeit ist die Summe der erkannten Linienfahrten und Leerfahrten; sie belegt nicht automatisch die tatsächliche Fahrzeugbewegungszeit.',
+    'Offizieller L5 wird unabhängig aus dem jeweiligen Abschnittskopf gelesen. Differenz = L5 − Fahrtenzeit; unbelegte Komponenten bleiben UNKNOWN.',
+    'Reale Lenkzeit: nicht bestimmt. Keine Rechts- oder Tarifprüfung wird hier vorgenommen.',
     ''
   ];
 
@@ -86,7 +91,7 @@ export function createVehicleCardBlock7ViewModel(vehicleCardSchedule) {
   };
 }
 
-function buildDrivingBlocks(segments, breaks) {
+function buildTripBlocks(segments, breaks) {
   const blocks = [];
   let current = null;
   for (const segment of segments) {
@@ -99,7 +104,7 @@ function buildDrivingBlocks(segments, breaks) {
       current = makeBlock(segment);
     } else {
       current.end = segment.end;
-      current.drivingMinutes += minutes(segment.duration);
+      current.tripMinutes += minutes(segment.duration);
       current.segments.push(segment);
     }
   }
@@ -108,7 +113,7 @@ function buildDrivingBlocks(segments, breaks) {
 }
 
 function makeBlock(segment) {
-  return { start: segment.start, end: segment.end, drivingMinutes: minutes(segment.duration), segments: [segment] };
+  return { start: segment.start, end: segment.end, tripMinutes: minutes(segment.duration), segments: [segment] };
 }
 
 function splitsDrivingBlocks(previousEnd, nextStart, breakItem) {
@@ -127,7 +132,7 @@ function longestBreak(items) {
   }, null);
 }
 
-function drivingAroundBreak(blocks, breakItem) {
+function tripAroundBreak(blocks, breakItem) {
   if (!breakItem) return [null, null];
   const breakStart = timeline(breakItem.start);
   const breakEnd = timeline(breakItem.end);
@@ -135,8 +140,8 @@ function drivingAroundBreak(blocks, breakItem) {
   let before = 0;
   let after = 0;
   for (const block of blocks) {
-    if (timeline(block.end) <= breakStart) before += block.drivingMinutes;
-    else if (timeline(block.start) >= breakEnd) after += block.drivingMinutes;
+    if (timeline(block.end) <= breakStart) before += block.tripMinutes;
+    else if (timeline(block.start) >= breakEnd) after += block.tripMinutes;
   }
   return [before, after];
 }
@@ -157,18 +162,22 @@ function sumMinutes(items) {
 function appendServiceText(lines, analysis) {
   const service = analysis.service || {};
   const additional = analysis.additionalTimes;
-  lines.push(`ID ${text(service.serviceNumber) || '-'}:`);
-  lines.push(`Lenkzeit gesamt laut Wagenkarte: ${formatMinutes(analysis.officialDrivingMinutes)}`);
-  if (analysis.relevantBreak && analysis.drivingBeforeRelevantBreakMinutes !== null && analysis.drivingAfterRelevantBreakMinutes !== null) {
-    lines.push(`Lenkzeit vor Pause/Dienstunterbrechung: ${formatMinutes(analysis.drivingBeforeRelevantBreakMinutes)}`);
-    lines.push(`Lenkzeit nach Pause/Dienstunterbrechung: ${formatMinutes(analysis.drivingAfterRelevantBreakMinutes)}`);
+  const sectionLabel = service.validity?.dayQualifier?.label || service.validity?.rawLabel || (service.source?.sectionIndex != null ? `Abschnitt ${service.source.sectionIndex + 1}` : '');
+  lines.push(`ID ${text(service.parentServiceNumber || service.serviceNumber) || '-'}${sectionLabel ? ` — ${sectionLabel}` : ''}:`);
+  lines.push(`Fahrtenzeit: ${formatMinutes(analysis.tripTimeMinutes)}`);
+  lines.push(`Offizieller L5: ${formatMinutes(analysis.officialL5Minutes)}`);
+  lines.push(`Differenz L5 − Fahrtenzeit: ${formatMinutes(analysis.l5DifferenceMinutes)}`);
+  lines.push('Reale Lenkzeit: nicht bestimmt (UNKNOWN). L5-Komponenten (Fahrten/Wende/Bereitstellung/sonstige/ungeklärt): UNKNOWN.');
+  if (analysis.relevantBreak && analysis.tripBeforeRelevantBreakMinutes !== null && analysis.tripAfterRelevantBreakMinutes !== null) {
+    lines.push(`Fahrtenzeit vor Unterbrechung: ${formatMinutes(analysis.tripBeforeRelevantBreakMinutes)}`);
+    lines.push(`Fahrtenzeit nach Unterbrechung: ${formatMinutes(analysis.tripAfterRelevantBreakMinutes)}`);
     lines.push(`Relevante Unterbrechung: ${breakLabel(analysis.relevantBreak)}`);
   } else {
     lines.push('Keine relevante Pause/Dienstunterbrechung gefunden.');
   }
-  lines.push(`Max. Lenkzeitblock: ${formatMinutes(analysis.maxDrivingBlockMinutes)}`);
-  lines.push(`Prüfung 04:30h: ${analysis.drivingTimeLimitStatus === 'OK' ? 'OK' : 'Prüfung erforderlich'}`);
-  lines.push('Zusätzlich erkannte Zeiten, nicht in berechneter Fahr-/Leerfahrzeit enthalten:');
+  lines.push(`Maximaler zusammenhängender Fahrtenblock: ${formatMinutes(analysis.maxContinuousTripBlockMinutes)}`);
+  if (analysis.warnings.includes('SECTION_BOUNDARY_AMBIGUOUS')) lines.push('Warnung: Abschnittszuordnung an Tabellenkopf mehrdeutig; Fahrtenzeit ist nicht vollständig verifiziert.');
+  lines.push('Weitere getrennt erkannte Zeitarten:');
   lines.push(`Wendezeit: ${formatMinutes(additional.turnaround)}`);
   lines.push(`Bereitstellungszeit: ${formatMinutes(additional.provisioning)}`);
   lines.push(`Vorbereiten: ${formatMinutes(additional.preparation)}`);
@@ -176,8 +185,17 @@ function appendServiceText(lines, analysis) {
   lines.push(`Dienstbereitschaft: ${formatMinutes(additional.standby)}`);
   lines.push(`Arbeitsnahe Zusatzzeiten gesamt: ${formatMinutes(additional.workAdjacentMinutes)}`);
   lines.push(`Pausen/Dienstunterbrechungen: ${formatMinutes(additional.normalBreakMinutes + additional.interruptionMinutes)}`);
-  if (analysis.l5DifferenceNotice) lines.push(analysis.l5DifferenceNotice);
   lines.push('');
+}
+
+export function resolveVehicleCardScheduleForBlock7(state) {
+  const candidates = [
+    state?.primaryImport?.importResult?.data,
+    state?.primaryImport?.data,
+    state?.companionImport?.importResult?.data,
+    state?.companionImport?.data
+  ];
+  return candidates.find(candidate => candidate?.type === 'VehicleCardSchedule' && candidate?.organization === 'JES') || null;
 }
 
 function breakLabel(item) {

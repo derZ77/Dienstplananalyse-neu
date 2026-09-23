@@ -1,4 +1,8 @@
 const COLUMN_COUNT = 10;
+const HEADER_TOKENS = Object.freeze([
+  'Dienst', 'Umlauf', 'Tätigkeit', 'Abfahrt', 'Abfahrtsort',
+  'Ankunft', 'Ankunftsort', 'Beginn', 'Ende', 'Bez. Zeit'
+]);
 
 export function reconstructLines(textObjects) {
   const sorted = [...textObjects].sort((left, right) =>
@@ -91,16 +95,36 @@ function findGeometricHeaders(lines) {
   const candidates = lines.filter(line => isHeaderLine(line));
   return candidates.filter(candidate => {
     const candidateAnchors = anchorPositions(candidate);
-    return candidates.filter(other => anchorSimilarity(candidateAnchors, anchorPositions(other)) >= 0.8).length >= 2;
+    const repeatedOnPage = candidates.filter(other => anchorSimilarity(candidateAnchors, anchorPositions(other)) >= 0.8).length >= 2;
+    return repeatedOnPage || hasPlausibleFollowingServiceRow(lines, candidate);
   });
 }
 
 function isHeaderLine(line) {
   const nonEmptyObjects = line.textObjects.filter(object => object.text.trim());
   const xSpread = line.boundingBox.xMax - line.boundingBox.xMin;
-  if (nonEmptyObjects.length < COLUMN_COUNT || xSpread <= 400) return false;
-  const text = nonEmptyObjects.map(object => object.text.trim()).join(' ');
-  return /^Dienst\s+Umlauf\s+Tätigkeit\b/.test(text);
+  if (nonEmptyObjects.length !== COLUMN_COUNT || xSpread <= 400) return false;
+  if (!nonEmptyObjects.every((object, index) => object.text.trim() === HEADER_TOKENS[index])) return false;
+  const anchors = nonEmptyObjects.map(object => object.boundingBox.xMin);
+  return anchors.every((anchor, index) => index === 0 || anchor - anchors[index - 1] >= 10);
+}
+
+function hasPlausibleFollowingServiceRow(lines, headerLine) {
+  const anchors = anchorPositions(headerLine);
+  if (anchors.length < COLUMN_COUNT) return false;
+  const firstColumnBoundary = (anchors[0] + anchors[1]) / 2;
+  const headerPosition = lines.indexOf(headerLine);
+
+  return lines.slice(headerPosition + 1, headerPosition + 9).some(line => {
+    const firstColumnText = line.textObjects
+      .filter(object => object.text.trim())
+      .filter(object => (object.boundingBox.xMin + object.boundingBox.xMax) / 2 <= firstColumnBoundary)
+      .map(object => object.text.trim())
+      .join(' ')
+      .trim();
+    if (!/^\d{2,5}$/.test(firstColumnText)) return false;
+    return (line.text.match(/\b(?:[01]?\d|2[0-3]):[0-5]\d\b/g) || []).length >= 2;
+  });
 }
 
 function anchorPositions(line) {

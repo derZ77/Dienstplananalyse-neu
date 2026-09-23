@@ -59,7 +59,7 @@ export function classifyExcelDocument(workbook) {
     if (!vehicleType && VEHICLE_RE.test(value)) vehicleType = value;
   });
 
-  // Wagenkarte's strongest signal (legacy detectWorkbookFormat): B1 of the first sheet.
+  // Wagenkarte's strongest signal: B1 of the first sheet.
   const firstB1 = sheets[0]?.rows?.[0]?.[1] != null ? String(sheets[0].rows[0][1]).trim() : '';
   if (firstB1 === 'Dienst-Nr.:') dienstNr = true;
 

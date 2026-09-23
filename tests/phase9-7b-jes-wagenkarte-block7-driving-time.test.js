@@ -8,12 +8,12 @@ const duration = minutes => ({ value: `${String(Math.floor(minutes / 60)).padSta
 const time = (value, timelineMinutes) => ({ value, timelineMinutes });
 const segment = (type, start, end, minutes, extra = {}) => ({ type, start, end, duration: duration(minutes), ...extra });
 
-function service(number = '901', { officialDrivingMinutes = 249, extraSegments = [], breaks = null, interruptions = null } = {}) {
+function service(number = '901', { officialL5Minutes = 249, extraSegments = [], breaks = null, interruptions = null } = {}) {
   const unpaidBreak = segment('UNPAID_BREAK', time('08:27', 507), time('08:57', 537), 30);
   return {
     serviceId: `wagenkarte-service:${number}`,
     serviceNumber: number,
-    officialDrivingTime: duration(officialDrivingMinutes),
+    officialL5: duration(officialL5Minutes),
     segments: [
       segment('LINE_SERVICE', time('05:00', 300), time('07:00', 420), 120, { line: '460', trip: '1' }),
       segment('TURNAROUND', time('07:00', 420), time('07:20', 440), 20),
@@ -37,17 +37,20 @@ function service(number = '901', { officialDrivingMinutes = 249, extraSegments =
   };
 }
 
-test('Phase 9.7B: Block 7 zählt nur Linien- und Leerfahrten und trennt sie an unbezahlter Pause', () => {
+test('Phase 9.7B: Block 7 summiert beobachtete Linien- und Leerfahrten und trennt sie an unbezahlter Pause', () => {
   const result = analyzeVehicleCardDrivingTime(service());
 
-  assert.equal(result.calculatedDrivingMinutes, 249);
+  assert.equal(result.tripTimeMinutes, 249);
+  assert.equal(result.officialL5Minutes, 249);
+  assert.equal(result.l5DifferenceMinutes, 0);
+  assert.equal(result.realDrivingTime, 'UNKNOWN');
+  assert.deepEqual(result.l5Components, { driving: 'UNKNOWN', turnaround: 'UNKNOWN', provision: 'UNKNOWN', other: 'UNKNOWN', unexplained: 'UNKNOWN' });
   assert.equal(result.blocks.length, 2);
-  assert.deepEqual(result.blocks.map(block => block.drivingMinutes), [177, 72]);
-  assert.equal(result.drivingBeforeRelevantBreakMinutes, 177);
-  assert.equal(result.drivingAfterRelevantBreakMinutes, 72);
-  assert.equal(result.maxDrivingBlockMinutes, 177);
-  assert.equal(result.drivingTimeLimitStatus, 'OK');
-  assert.equal(result.l5DifferenceNotice, null);
+  assert.deepEqual(result.blocks.map(block => block.tripMinutes), [177, 72]);
+  assert.equal(result.tripBeforeRelevantBreakMinutes, 177);
+  assert.equal(result.tripAfterRelevantBreakMinutes, 72);
+  assert.equal(result.maxContinuousTripBlockMinutes, 177);
+  assert.equal('drivingTimeLimitStatus' in result, false);
   assert.equal(result.additionalTimes.workAdjacentMinutes, 75);
 });
 
@@ -55,7 +58,7 @@ test('Phase 9.7B: mehrere relevante Unterbrechungen erzeugen alle Lenkzeitblöck
   const firstBreak = segment('UNPAID_BREAK', time('06:00', 360), time('06:30', 390), 30);
   const interruption = segment('SERVICE_INTERRUPTION', time('08:00', 480), time('10:30', 630), 150);
   const card = service('902', {
-    officialDrivingMinutes: 240,
+    officialL5Minutes: 240,
     breaks: [firstBreak],
     interruptions: [interruption]
   });
@@ -69,30 +72,20 @@ test('Phase 9.7B: mehrere relevante Unterbrechungen erzeugen alle Lenkzeitblöck
   const result = analyzeVehicleCardDrivingTime(card);
 
   assert.equal(result.blocks.length, 3);
-  assert.deepEqual(result.blocks.map(block => block.drivingMinutes), [60, 90, 90]);
+  assert.deepEqual(result.blocks.map(block => block.tripMinutes), [60, 90, 90]);
   assert.equal(result.relevantBreak.type, 'SERVICE_INTERRUPTION');
-  assert.equal(result.drivingBeforeRelevantBreakMinutes, 150);
-  assert.equal(result.drivingAfterRelevantBreakMinutes, 90);
-  assert.equal(result.maxDrivingBlockMinutes, 90);
+  assert.equal(result.tripBeforeRelevantBreakMinutes, 150);
+  assert.equal(result.tripAfterRelevantBreakMinutes, 90);
+  assert.equal(result.maxContinuousTripBlockMinutes, 90);
 });
 
-test('Phase 9.7B: 04:30-Grenze und L5-Abweichung folgen dem Legacy-Vertrag', () => {
-  const cases = [
-    [269, 'OK'], [270, 'OK'], [271, 'REVIEW_REQUIRED']
-  ];
-  for (const [minutes, expected] of cases) {
-    const result = analyzeVehicleCardDrivingTime({
-      ...service(`limit-${minutes}`, { officialDrivingMinutes: minutes }),
-      segments: [segment('LINE_SERVICE', time('05:00', 300), time('09:30', 570), minutes)] ,
-      breaks: [], interruptions: [], additionalTimes: { turnaround: [], provisioning: [], preparation: [], postprocessing: [], standby: [] }
-    });
-    assert.equal(result.drivingTimeLimitStatus, expected);
-  }
-
-  const equal = analyzeVehicleCardDrivingTime(service('equal', { officialDrivingMinutes: 249 }));
-  const different = analyzeVehicleCardDrivingTime(service('different', { officialDrivingMinutes: 230 }));
-  assert.equal(equal.l5DifferenceNotice, null);
-  assert.match(different.l5DifferenceNotice, /weicht vom L5-Kopfwert ab/i);
+test('Phase 9.7B: L5 bleibt unabhängig und Differenz ist official L5 minus beobachtete Fahrtenzeit', () => {
+  const result = analyzeVehicleCardDrivingTime(service('difference', { officialL5Minutes: 230 }));
+  assert.equal(result.tripTimeMinutes, 249);
+  assert.equal(result.officialL5Minutes, 230);
+  assert.equal(result.l5DifferenceMinutes, -19);
+  assert.equal(result.realDrivingTime, 'UNKNOWN');
+  assert.equal('drivingTimeLimitStatus' in result, false);
 });
 
 test('Phase 9.7B: Mitternachtssegmente bleiben im richtigen Lenkzeitblock und die Block-7-Ausgabe bleibt fachlich lesbar', () => {
@@ -100,7 +93,7 @@ test('Phase 9.7B: Mitternachtssegmente bleiben im richtigen Lenkzeitblock und di
   const card = {
     type: 'VehicleCardSchedule', organization: 'JES', documentType: 'wagenkarte',
     services: [{
-      ...service('903', { officialDrivingMinutes: 70, breaks: [midnightPause], interruptions: [] }),
+      ...service('903', { officialL5Minutes: 70, breaks: [midnightPause], interruptions: [] }),
       segments: [
         segment('LINE_SERVICE', time('23:30', 1410), time('00:20', 1460), 50),
         midnightPause,
@@ -111,21 +104,23 @@ test('Phase 9.7B: Mitternachtssegmente bleiben im richtigen Lenkzeitblock und di
   const result = analyzeVehicleCardDrivingTime(card.services[0]);
   const view = createVehicleCardBlock7ViewModel(card);
 
-  assert.deepEqual(result.blocks.map(block => block.drivingMinutes), [50, 20]);
+  assert.deepEqual(result.blocks.map(block => block.tripMinutes), [50, 20]);
   assert.match(view.realDrivingTimeText, /ID 903:/);
-  assert.match(view.realDrivingTimeText, /Lenkzeit gesamt laut Wagenkarte: 01:10/);
-  assert.match(view.realDrivingTimeText, /Lenkzeit vor Pause\/Dienstunterbrechung: 00:50/);
-  assert.match(view.realDrivingTimeText, /Lenkzeit nach Pause\/Dienstunterbrechung: 00:20/);
-  assert.match(view.realDrivingTimeText, /Prüfung 04:30h: OK/);
+  assert.match(view.realDrivingTimeText, /Fahrtenzeit: 01:10/);
+  assert.match(view.realDrivingTimeText, /Offizieller L5: 01:10/);
+  assert.match(view.realDrivingTimeText, /Fahrtenzeit vor Unterbrechung: 00:50/);
+  assert.match(view.realDrivingTimeText, /Fahrtenzeit nach Unterbrechung: 00:20/);
+  assert.match(view.realDrivingTimeText, /Reale Lenkzeit: nicht bestimmt/);
+  assert.doesNotMatch(view.realDrivingTimeText, /Prüfung 04:30h|Lenkzeit gesamt/i);
 });
 
 test('Phase 9.7B: die bestehende Block-7-Zielbox erhält nur die Wagenkarten-Lenkzeitausgabe', () => {
   const target = { innerHTML: '', textContent: '' };
   const document = { getElementById: id => id === 'real-driving-time-result' ? target : null };
-  const view = { realDrivingTimeText: 'ID 901:\nPrüfung 04:30h: OK' };
+  const view = { realDrivingTimeText: 'ID 901:\nFahrtenzeit: 04:09' };
 
   renderVehicleCardBlock7(view, { document });
 
   assert.match(target.innerHTML, /ID 901/);
-  assert.match(target.innerHTML, /Prüfung 04:30h: OK/);
+  assert.match(target.innerHTML, /Fahrtenzeit: 04:09/);
 });

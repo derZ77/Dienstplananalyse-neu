@@ -6,7 +6,7 @@ import { createDienstplanExportController } from './export/dienstplan-export-ui.
 import { createDienstuebersichtExportController } from './export/dienstuebersicht-export-ui.js';
 import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
 import { clearOriginalBlocks, renderOriginalBlocks, renderVehicleCardBlock7 } from './blocks/block-renderer.js';
-import { createVehicleCardBlock7ViewModel } from './blocks/wagenkarte-block7.js';
+import { createVehicleCardBlock7ViewModel, resolveVehicleCardScheduleForBlock7 } from './blocks/wagenkarte-block7.js';
 import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
 import { initializeAnalysisSearch } from './ui/analysis-search-controller.js';
 import { formatCanonicalValidity, formatValiditySource } from './schedule/canonical-validity.js?v=phase9.10';
@@ -70,10 +70,11 @@ function render(state) {
   setStatus(matchingStatusEl, state.matchingStatus);
   setStatus(ruleAnalysisStatusEl, state.ruleAnalysisStatus);
   const canonicalSchedule = state?.primaryImport?.canonicalSchedule;
-  const vehicleCardSchedule = state?.primaryImport?.importResult?.data;
+  const vehicleCardSchedule = resolveVehicleCardScheduleForBlock7(state);
   renderValidityControls(canonicalSchedule);
   if (canonicalSchedule?.type === 'CanonicalSchedule') {
     renderOriginalBlocks(createOriginalBlockViewModel(canonicalSchedule, { checkReport: state.checkReport }));
+    if (vehicleCardSchedule) renderVehicleCardBlock7(createVehicleCardBlock7ViewModel(vehicleCardSchedule));
   } else if (vehicleCardSchedule?.type === 'VehicleCardSchedule' && vehicleCardSchedule?.organization === 'JES') {
     clearOriginalBlocks();
     renderVehicleCardBlock7(createVehicleCardBlock7ViewModel(vehicleCardSchedule));

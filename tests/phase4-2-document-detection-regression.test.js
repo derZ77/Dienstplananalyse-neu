@@ -111,7 +111,7 @@ test('E: the real Umlauftafel PDF enters its isolated structural contract, never
   assert.ok(!text.includes('Dienste Stadtbus'));
 });
 
-test('E: only the JNV Umlauftafel PDF family is added; Wagenkarten remain Excel-only', () => {
+test('E: the tram schedule family is recognized; Umlauftafeln and Wagenkarten stay in their existing paths', () => {
   assert.deepEqual(getProfilesForDocumentType('wagenkarte'), []);
   assert.deepEqual(getProfilesForDocumentType('umlaufkarte'), []);
   assert.deepEqual(Object.keys(PDF_DOCUMENT_PROFILES).sort(), ['beu', 'jes', 'jnvUmlauftafel']);

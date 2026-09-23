@@ -32,6 +32,7 @@ const DAY_QUALIFIERS = Object.freeze({
   'Mo-Sa': 'MON_SAT',
   'Di-Do': 'TUE_THU',
   'Di-Fr': 'TUE_FRI',
+  'Fr': 'FRIDAY',
   'Montag': 'MONDAY',
   'Dienstag': 'TUESDAY',
   'Mittwoch': 'WEDNESDAY',

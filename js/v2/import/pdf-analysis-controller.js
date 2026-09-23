@@ -92,6 +92,10 @@ export async function analyzePdfImport(file) {
 /** Duplicate logical IDs stay separate source records; absent row-level evidence is explicit. */
 function attachServiceVariantValidity(schedule) {
   const groups = new Map();
+  const qualifiersByServiceId = new Map((schedule.hardened?.services || []).map(service => [
+    service.serviceId,
+    service.dayQualifiers || []
+  ]));
   for (const service of schedule.services || []) {
     const key = String(service.serviceNumber ?? '').trim();
     const group = groups.get(key) || [];
@@ -102,19 +106,40 @@ function attachServiceVariantValidity(schedule) {
   if (!variants.size) return schedule;
   const variantById = new Map();
   for (const [serviceNumber, services] of variants) {
-    services.forEach((service, index) => variantById.set(service.id, {
-      logicalServiceNumber: serviceNumber,
-      variantIndex: index + 1,
-      variantCount: services.length,
-      validity: { status: 'unresolved', dayType: 'unknown', serviceRegime: 'unknown', source: 'UNKNOWN' }
-    }));
+    services.forEach((service, index) => {
+      const qualifiers = qualifiersByServiceId.get(service.id) || [];
+      const codes = [...new Set(qualifiers.map(qualifier => qualifier.code).filter(Boolean))];
+      const qualifier = codes.length === 1 ? qualifiers.find(entry => entry.code === codes[0]) : null;
+      const variantValidity = qualifier
+        ? {
+            status: 'resolved',
+            dayType: qualifier.code,
+            serviceRegime: schedule.validity?.serviceRegime || 'unknown',
+            source: 'ROW_LABEL',
+            label: qualifier.label
+          }
+        : { status: 'unresolved', dayType: 'unknown', serviceRegime: 'unknown', source: 'UNKNOWN' };
+      variantById.set(service.id, {
+        logicalServiceNumber: serviceNumber,
+        variantIndex: index + 1,
+        variantCount: services.length,
+        validity: variantValidity,
+        variantValidity
+      });
+    });
   }
   return {
     ...schedule,
     services: schedule.services.map(service => ({ ...service, ...(variantById.get(service.id) || {}) })),
     activities: schedule.activities.map(activity => {
       const variant = variantById.get(activity.serviceId);
-      return variant ? { ...activity, logicalServiceNumber: variant.logicalServiceNumber, variantIndex: variant.variantIndex, variantCount: variant.variantCount } : activity;
+      return variant ? {
+        ...activity,
+        logicalServiceNumber: variant.logicalServiceNumber,
+        variantIndex: variant.variantIndex,
+        variantCount: variant.variantCount,
+        variantValidity: variant.variantValidity
+      } : activity;
     })
   };
 }

@@ -6,7 +6,7 @@
  * default for unknown documents.
  */
 
-export const CANONICAL_DAY_TYPES = Object.freeze(['mo_fr', 'saturday', 'sunday', 'unknown']);
+export const CANONICAL_DAY_TYPES = Object.freeze(['mo_fr', 'saturday', 'sunday', 'sunday_holiday', 'unknown']);
 export const CANONICAL_SERVICE_REGIMES = Object.freeze(['school', 'holidays', 'unknown']);
 export const VALIDITY_SOURCES = Object.freeze(['HEADER', 'DOCUMENT_METADATA', 'FILENAME', 'MANUAL', 'UNKNOWN']);
 
@@ -17,6 +17,7 @@ function dayTypeFromText(value) {
   const probe = text(value);
   if (/montag\s*(?:bis|-|–)\s*freitag|\bmo\s*(?:-|–)?\s*fr\b/i.test(probe)) return 'mo_fr';
   if (/\bsamstag\b|(?:^|[_.\-\s])sa(?:$|[_.\-\s])/i.test(probe)) return 'saturday';
+  if (/sonn(?:tag)?\s*(?:-|–|und)\s*(?:feiertag|feiertage)|sonn-\s*und\s*feiertag/i.test(probe)) return 'sunday_holiday';
   if (/\bsonntag\b|(?:^|[_.\-\s])so(?:$|[_.\-\s])/i.test(probe)) return 'sunday';
   return null;
 }
@@ -32,6 +33,7 @@ function dayTypeFromFilename(value) {
   const probe = text(value);
   if (/mo(?:-|_|\s)?fr/i.test(probe)) return 'mo_fr';
   if (/(?:^|[_\-.])sa(?:[_\-.]|$)|samstag/i.test(probe)) return 'saturday';
+  if (/sonn(?:tag)?\s*(?:-|–|und)\s*(?:feiertag|feiertage)|sonn-\s*und\s*feiertag/i.test(probe)) return 'sunday_holiday';
   if (/(?:^|[_\-.])so(?:[_\-.]|$)|sonntag/i.test(probe)) return 'sunday';
   return null;
 }
@@ -121,7 +123,7 @@ export function withManualCanonicalDayType(schedule, dayType) {
 }
 
 export function formatCanonicalValidity(validity) {
-  const day = { mo_fr: 'Montag–Freitag', saturday: 'Samstag', sunday: 'Sonntag', unknown: 'unbekannt' }[validity?.dayType] || 'unbekannt';
+  const day = { mo_fr: 'Montag–Freitag', saturday: 'Samstag', sunday: 'Sonntag', sunday_holiday: 'Sonn- und Feiertag', unknown: 'unbekannt' }[validity?.dayType] || 'unbekannt';
   const regime = { school: 'Schule', holidays: 'Ferien' }[validity?.serviceRegime] || '';
   return regime ? `${day} (${regime})` : day;
 }

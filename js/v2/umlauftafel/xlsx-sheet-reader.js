@@ -38,10 +38,13 @@ export function readWorkbookSheets(bytes) {
   const sheets = sheetNames.map(name => {
     const worksheet = workbook.Sheets[name];
     if (!worksheet) return { name, ref: null, rows: [] };
-    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: true, defval: '' });
+    const range = worksheet['!ref'] ? XLSX.utils.decode_range(worksheet['!ref']) : null;
     return {
       name,
       ref: worksheet['!ref'] || null,
+      startRow: range ? range.s.r + 1 : 1,
+      startColumn: range ? range.s.c + 1 : 1,
       rows: rows.map(row => (Array.isArray(row) ? row.map(cell => (cell == null ? '' : String(cell))) : []))
     };
   });
