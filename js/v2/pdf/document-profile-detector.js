@@ -82,6 +82,7 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
     /Dienste Regionalbus Montag bis Freitag(?: \((?:Ferien|Schule)\))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
     tableHeaderFound,
     /Vorbereitungszeit(?:\s*JES)?|Nachbereitungszeit(?:\s*JES)?|JES(?:\s*Pausenort)?/.test(normalized)
+      || hasIndependentServiceData(normalized)
   ];
 
   if (jesSignals.every(Boolean)) {

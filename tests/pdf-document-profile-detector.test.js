@@ -8,6 +8,29 @@ import {
 
 const tableHeader = 'Dienst Umlauf Tätigkeit Abfahrt Abfahrtsort Ankunft Ankunftsort Beginn Ende Bez. Zeit';
 
+test('erkennt Eisenberg-Regionalbus mit Dienstdaten ohne JES-Text oder Vorbereitungszeilen', () => {
+  const result = detectPdfDocumentProfile({
+    text: `Dienste Regionalbus Montag bis Freitag, ab 12.10.2026 ${tableHeader}
+      701 7011 Dienst 04:17 Betriebshof Eisenberg 09:20 Betriebshof Eisenberg 04:02 12:04 07:32
+      Pause 09:25 Betriebshof Eisenberg 09:55 Betriebshof Eisenberg
+      7012 Dienst 09:57 Betriebshof Eisenberg 11:49 Betriebshof Eisenberg`,
+    pageCount: 3
+  });
+
+  assert.equal(result.status, 'supported');
+  assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.jes);
+});
+
+test('lehnt Regionalbus-Titel mit wiederholten Tabellenköpfen ohne Tätigkeitsdaten ab', () => {
+  const result = detectPdfDocumentProfile({
+    text: `Dienste Regionalbus Montag bis Freitag, ab 12.10.2026 ${tableHeader} ${tableHeader}`,
+    pageCount: 3
+  });
+
+  assert.equal(result.status, 'unsupported');
+  assert.equal(result.profile, undefined);
+});
+
 test('erkennt das JES-Referenzprofil regelbasiert', () => {
   const result = detectPdfDocumentProfile({
     text: `Dienste Regionalbus Montag bis Freitag (Ferien), ab 13.07.2026 ${tableHeader} Vorbereitungszeit JES`,
