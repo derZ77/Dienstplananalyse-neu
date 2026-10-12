@@ -42,7 +42,9 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
   const legacyLongText = `Dienste >08:30h: ${ordered(legacy.longPaidServices).join(', ')}`;
 
   return {
-    planTypeText: `Erkannter Dienstplan: ${planHinweis}`,
+    planTypeText: [`Erkannter Dienstplan: ${planHinweis}`,
+      ...(canonicalSchedule.warnings || []).filter(warning => warning.code === 'TIME_CHANGE_REQUIRES_REVIEW').map(warning => warning.message)
+    ].join('\n\n'),
     countText: `Anzahl eindeutiger Dienst-IDs: ${legacy.serviceCount}`,
     sharedText: renderShared(sharedServices),
     reserveText: `Anzahl Reserve-Dienste: ${legacy.reserveServices.length}\nIDs: ${ordered(legacy.reserveServices).join(', ')}`,

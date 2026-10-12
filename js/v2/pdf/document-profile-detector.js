@@ -52,7 +52,9 @@ function escapeRegExp(value) {
  */
 export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   const normalized = normalizePdfText(text);
-  const title = normalized.match(/Dienste\s+(?:Regionalbus|Stadtbus|Straßenbahn|Tram)\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
+  const standardTitle = normalized.match(/Dienste\s+(?:Dienstschulung\s+)?(?:Regionalbus|Stadtbus|Straßenbahn|Tram)\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
+  const timeChangeTitle = normalized.match(/Dienste\s+(?:Samstag|Sonntag)\s+Zeitumstellung\s+am\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
+  const title = standardTitle || timeChangeTitle;
   const tableHeaderFound = hasTableHeader(normalized);
 
   // Umlauftafeln have no ten-column Dienstübersicht header. Classification is
@@ -115,7 +117,8 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   }
 
   const beuSignals = [
-    /Dienste Stadtbus\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/.test(normalized),
+    /Dienste\s+(?:Dienstschulung\s+)?Stadtbus\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}/.test(normalized)
+      || Boolean(timeChangeTitle),
     tableHeaderFound,
     hasIndependentServiceData(normalized)
   ];

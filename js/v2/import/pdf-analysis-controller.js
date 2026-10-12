@@ -16,15 +16,15 @@
  * Local only: no network, no storage, no new dependency.
  */
 
-import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.11';
-import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.11';
-import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.11';
-import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.11';
-import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.11';
-import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.11';
-import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.11';
-import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.11';
-import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.11';
+import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.12';
+import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.12';
+import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.12';
+import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.12';
+import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.12';
+import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.12';
+import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.12';
+import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.12';
+import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.12';
 
 const DETECTION_PAGES = 2;
 
@@ -86,7 +86,19 @@ export async function analyzePdfImport(file) {
     headerText: detection.title,
     fileName: file?.name || ''
   });
-  return { detection, canonicalSchedule: attachServiceVariantValidity(canonicalSchedule) };
+  return { detection, canonicalSchedule: attachTimeChangeNotice(attachServiceVariantValidity(canonicalSchedule), detection.title) };
+}
+
+/** Preserve source clock/duration data when the document does not identify the repeated hour. */
+export function attachTimeChangeNotice(schedule, title) {
+  if (!/\bZeitumstellung\b/i.test(title || '')) return schedule;
+  return {
+    ...schedule,
+    warnings: [...(schedule.warnings || []), {
+      code: 'TIME_CHANGE_REQUIRES_REVIEW',
+      message: 'Zeitumstellung: Prüfung erforderlich. Zeiten und bezahlte Dauer werden aus der PDF übernommen; Zeitspannen werden aus den angegebenen Uhrzeiten berechnet. Eine Sommer-/Winterzeitkorrektur ist nicht eingerechnet. Die Zeitbasis und die Zuordnung wiederholter oder übersprungener Uhrzeiten müssen geklärt werden.'
+    }]
+  };
 }
 
 /** Duplicate logical IDs stay separate source records; absent row-level evidence is explicit. */

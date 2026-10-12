@@ -8,6 +8,27 @@ import {
 
 const tableHeader = 'Dienst Umlauf Tätigkeit Abfahrt Abfahrtsort Ankunft Ankunftsort Beginn Ende Bez. Zeit';
 
+for (const title of [
+  'Dienste Dienstschulung Stadtbus Montag bis Freitag, ab 02.11.2026',
+  'Dienste Dienstschulung Stadtbus Montag bis Freitag, ab 12.10.2026',
+  'Dienste Samstag Zeitumstellung am 24.10.2026'
+]) {
+  test(`erkennt Sondertitel und erhält ihn unverändert: ${title}`, () => {
+    const result = detectPdfDocumentProfile({
+      text: `${title} ${tableHeader} 2156 Dienst 08:00 Bth. Burgau 12:15 Bth. Burgau 08:00 18:06 07:43`,
+      pageCount: 1
+    });
+    assert.equal(result.status, 'supported');
+    assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.beu);
+    assert.equal(result.title, title);
+  });
+
+  test(`lehnt Sondertitel ohne Tätigkeitsdaten ab: ${title}`, () => {
+    const result = detectPdfDocumentProfile({ text: `${title} ${tableHeader}`, pageCount: 1 });
+    assert.equal(result.status, 'unsupported');
+  });
+}
+
 test('erkennt Eisenberg-Regionalbus mit Dienstdaten ohne JES-Text oder Vorbereitungszeilen', () => {
   const result = detectPdfDocumentProfile({
     text: `Dienste Regionalbus Montag bis Freitag, ab 12.10.2026 ${tableHeader}
