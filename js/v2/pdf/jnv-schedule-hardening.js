@@ -15,8 +15,8 @@ import {
   ROW_TYPES,
   classifyActivityRow,
   parseServiceInterruption
-} from './row-type-contract.js?v=phase9.12';
-import { normalizeTimeline } from './timeline-normalization.js?v=phase9.12';
+} from './row-type-contract.js?v=phase9.13';
+import { normalizeTimeline } from './timeline-normalization.js?v=phase9.13';
 
 export const WARNING_CODES = Object.freeze({
   INVALID_SERVICE_INTERRUPTION_TIME: 'INVALID_SERVICE_INTERRUPTION_TIME',

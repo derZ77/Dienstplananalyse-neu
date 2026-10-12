@@ -1,5 +1,5 @@
 import { getDocument, GlobalWorkerOptions } from '../../../vendor/pdfjs/pdf.mjs';
-import { combineBoundingBoxes, reconstructLines, reconstructTablesAndBlocks } from './layout-reconstruction.js?v=phase9.12';
+import { combineBoundingBoxes, reconstructLines, reconstructTablesAndBlocks } from './layout-reconstruction.js?v=phase9.13';
 
 GlobalWorkerOptions.workerSrc = new URL('../../../vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
 

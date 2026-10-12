@@ -16,15 +16,18 @@
  * Local only: no network, no storage, no new dependency.
  */
 
-import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.12';
-import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.12';
-import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.12';
-import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.12';
-import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.12';
-import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.12';
-import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.12';
-import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.12';
-import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.12';
+import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.13';
+import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.13';
+import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.13';
+import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.13';
+import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.13';
+import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.13';
+import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.13';
+import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.13';
+import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.13';
+
+import { attachSectionValidity } from '../pdf/section-validity.js?v=phase9.13';
+export { attachSectionValidity };
 
 const DETECTION_PAGES = 2;
 
@@ -86,7 +89,7 @@ export async function analyzePdfImport(file) {
     headerText: detection.title,
     fileName: file?.name || ''
   });
-  return { detection, canonicalSchedule: attachTimeChangeNotice(attachServiceVariantValidity(canonicalSchedule), detection.title) };
+  return { detection, canonicalSchedule: attachTimeChangeNotice(attachServiceVariantValidity(attachSectionValidity(canonicalSchedule, layout)), detection.title) };
 }
 
 /** Preserve source clock/duration data when the document does not identify the repeated hour. */

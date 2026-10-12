@@ -33,7 +33,9 @@ const duration = value => text(value?.value) || '-';
 export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = null } = {}) {
   const analysis = analyzeCanonicalScheduleWithMigratedLegacyChecks(canonicalSchedule);
   const legacy = analysis.legacyAnalyses;
-  const planHinweis = legacy.plan.label;
+  const planHinweis = canonicalSchedule.validity?.dayTypes?.length > 1
+    ? 'Gemischter Wochenendplan – Samstag / Sonn- und Feiertag'
+    : legacy.plan.label;
   const pauses = collectBlock10Events(canonicalSchedule);
   // A Dienstnummer is the legacy-facing identity of this block. The canonical import may
   // contain the same duty in more than one source row, but it is still one shared duty.
@@ -43,7 +45,7 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
 
   return {
     planTypeText: [`Erkannter Dienstplan: ${planHinweis}`,
-      ...(canonicalSchedule.warnings || []).filter(warning => warning.code === 'TIME_CHANGE_REQUIRES_REVIEW').map(warning => warning.message)
+      ...(canonicalSchedule.warnings || []).filter(warning => ['TIME_CHANGE_REQUIRES_REVIEW', 'MIXED_DAY_TYPES'].includes(warning.code)).map(warning => warning.message)
     ].join('\n\n'),
     countText: `Anzahl eindeutiger Dienst-IDs: ${legacy.serviceCount}`,
     sharedText: renderShared(sharedServices),

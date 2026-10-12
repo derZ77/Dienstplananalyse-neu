@@ -112,3 +112,16 @@ test('lehnt unbekannte PDFs ohne Teilanalyse ab', () => {
   assert.equal(result.status, 'unsupported');
   assert.equal(result.profile, undefined);
 });
+
+for (const day of ['Samstag', 'Sonntag', 'Sonn- und Feiertag']) {
+  test(`erkennt Regionalbus ${day} mit Tätigkeitsdaten`, () => {
+    const title = `Dienste Regionalbus ${day}, ab 12.10.2026`;
+    const result = detectPdfDocumentProfile({ text: `${title} ${tableHeader} 851 8511 Dienst 07:12 Jena 13:42 Jena`, pageCount: 1 });
+    assert.equal(result.status, 'supported');
+    assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.jes);
+    assert.equal(result.title, title);
+  });
+  test(`lehnt Regionalbus ${day} ohne Tätigkeitsdaten ab`, () => {
+    assert.equal(detectPdfDocumentProfile({text: `Dienste Regionalbus ${day}, ab 12.10.2026 ${tableHeader}`}).status, 'unsupported');
+  });
+}
