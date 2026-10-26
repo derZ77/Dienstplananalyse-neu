@@ -1,4 +1,4 @@
-import { attachCircuitIdentities } from '../identity/identity-normalization.js?v=phase9.13';
+import { attachCircuitIdentities } from '../identity/identity-normalization.js?v=phase9.14';
 
 /**
  * Builds the document-independent CanonicalSchedule without document-profile

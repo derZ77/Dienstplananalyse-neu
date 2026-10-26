@@ -35,7 +35,9 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
   const legacy = analysis.legacyAnalyses;
   const planHinweis = canonicalSchedule.validity?.dayTypes?.length > 1
     ? 'Gemischter Wochenendplan – Samstag / Sonn- und Feiertag'
-    : legacy.plan.label;
+    : !legacy.plan.vehicle && canonicalSchedule.validity?.dayTypeSource === 'HEADER' && canonicalSchedule.validity?.rawLabel
+      ? (canonicalSchedule.validity.rawLabel.match(/^.*?\bab\s+\d{2}\.\d{2}\.\d{4}\b/)?.[0] || canonicalSchedule.validity.rawLabel)
+      : legacy.plan.label;
   const pauses = collectBlock10Events(canonicalSchedule);
   // A Dienstnummer is the legacy-facing identity of this block. The canonical import may
   // contain the same duty in more than one source row, but it is still one shared duty.

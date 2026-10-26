@@ -12,9 +12,9 @@ import {
   createValidity, createUmlauftafelWarning, createParserResult,
   UMLAUFTAFEL_MODES, UMLAUFTAFEL_SOURCE_FORMATS, SEGMENT_TYPES,
   TIME_ROLES, TIME_CONFIDENCE, WARNING_CODES, WARNING_SEVERITIES, WARNING_SCOPES
-} from './umlauftafel-contract.js?v=phase9.13';
-import { validateUmlauftafelDocument } from './umlauftafel-validation.js?v=phase9.13';
-import { resolveCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.13';
+} from './umlauftafel-contract.js?v=phase9.14';
+import { validateUmlauftafelDocument } from './umlauftafel-validation.js?v=phase9.14';
+import { resolveCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.14';
 
 const text = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const timeRe = /\b(\d{1,2}):(\d{2})\b/;

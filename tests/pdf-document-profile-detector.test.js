@@ -125,3 +125,23 @@ for (const day of ['Samstag', 'Sonntag', 'Sonn- und Feiertag']) {
     assert.equal(detectPdfDocumentProfile({text: `Dienste Regionalbus ${day}, ab 12.10.2026 ${tableHeader}`}).status, 'unsupported');
   });
 }
+
+for (const regime of ['Schule', 'Ferien']) {
+  for (const qualifier of [regime, `(${regime})`]) {
+    test(`erkennt Regionalbus mit Zusatz ${qualifier} im Titel`, () => {
+      const title = `Dienste Regionalbus Montag bis Freitag ${qualifier}, ab 26.10.2026`;
+      const result = detectPdfDocumentProfile({
+        text: `${title} ${tableHeader} 601 Vorbereitungszeit 04:02 Eisenberg 04:17 Eisenberg`, pageCount: 7
+      });
+      assert.equal(result.status, 'supported');
+      assert.deepEqual(result.profile, PDF_DOCUMENT_PROFILES.jes);
+      assert.equal(result.title, title);
+    });
+  }
+}
+
+test('lehnt Regionalbus mit unbekanntem Titelzusatz weiterhin ab', () => {
+  assert.equal(detectPdfDocumentProfile({
+    text: `Dienste Regionalbus Montag bis Freitag Sonderformat, ab 26.10.2026 ${tableHeader} Vorbereitungszeit`
+  }).status, 'unsupported');
+});

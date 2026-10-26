@@ -7,7 +7,7 @@ import { dirname, normalize } from 'node:path/posix';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const ASSET_VERSION = 'phase9.13';
+const ASSET_VERSION = 'phase9.14';
 const basePath = '/Dienstplananalyse-neu/';
 const localAssetPath = assetPath => `${ROOT}/${assetPath.replace(basePath, '')}`;
 

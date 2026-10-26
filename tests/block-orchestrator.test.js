@@ -47,3 +47,15 @@ test('Block-Orchestrator behandelt eine bestätigte Unterbrechung als Datenmodel
   assert.match(blocks.pauseHtml, /1140/);
   assert.match(blocks.pauseHtml, /Pause: 09:00.*09:30.*30 min/);
 });
+
+test('Block-Orchestrator zeigt belegten PDF-Titel bei unbekanntem Nummernschema', () => {
+  const title = 'Dienste Regionalbus Montag bis Freitag Schule, ab 26.10.2026';
+  const schedule = adaptExcelRowsToCanonicalSchedule([
+    ['Kopf'],
+    ['', '', '601', 'Dienst', '6011', '04:17', 'Eisenberg', '', '', '11:22', 'Eisenberg', '', '', '', '04:02', '11:37', '07:05']
+  ], { layout: 'legacy-tabular-17-column' });
+  schedule.validity = { dayType: 'mo_fr', dayTypeSource: 'HEADER', serviceRegime: 'school', rawLabel: title };
+  const blocks = createOriginalBlockViewModel(schedule);
+  assert.equal(blocks.planHinweis, title);
+  assert.equal(blocks.planTypeText, `Erkannter Dienstplan: ${title}`);
+});

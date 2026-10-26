@@ -81,7 +81,7 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   }
 
   const jesSignals = [
-    /Dienste Regionalbus (?:Montag bis Freitag|Samstag|Sonntag|Sonn- und Feiertag)(?: \((?:Ferien|Schule)\))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
+    /Dienste Regionalbus (?:Montag bis Freitag|Samstag|Sonntag|Sonn- und Feiertag)(?: (?:\((?:Ferien|Schule)\)|Ferien|Schule))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
     tableHeaderFound,
     /Vorbereitungszeit(?:\s*JES)?|Nachbereitungszeit(?:\s*JES)?|JES(?:\s*Pausenort)?/.test(normalized)
       || hasIndependentServiceData(normalized)

@@ -1,4 +1,4 @@
-import { initializePdfImport } from './import/pdf-import-controller.js?v=phase9.13';
+import { initializePdfImport } from './import/pdf-import-controller.js?v=phase9.14';
 import { createMultiDocumentSession } from './import/multi-document-import-controller.js';
 import { createCheckExplorerSessionBridge } from './explorer/check-explorer-session-bridge.js';
 import { deriveReportContext } from './report/check-report-view-model.js';
@@ -9,7 +9,7 @@ import { clearOriginalBlocks, renderOriginalBlocks, renderVehicleCardBlock7 } fr
 import { createVehicleCardBlock7ViewModel, resolveVehicleCardScheduleForBlock7 } from './blocks/wagenkarte-block7.js';
 import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
 import { initializeAnalysisSearch } from './ui/analysis-search-controller.js';
-import { formatCanonicalValidity, formatValiditySource } from './schedule/canonical-validity.js?v=phase9.13';
+import { formatCanonicalValidity, formatValiditySource } from './schedule/canonical-validity.js?v=phase9.14';
 
 // Phase 3F: one memory-only session holds the primary (captured from the unchanged
 // single import) and an optional companion. No storage, no network, no matching.

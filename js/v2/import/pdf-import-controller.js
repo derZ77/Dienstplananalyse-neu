@@ -1,6 +1,6 @@
 import { getDocument, GlobalWorkerOptions } from '../../../vendor/pdfjs/pdf.mjs';
-import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.13';
-import { analyzePdfImport } from './pdf-analysis-controller.js?v=phase9.13';
+import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.14';
+import { analyzePdfImport } from './pdf-analysis-controller.js?v=phase9.14';
 import { handleExcelImport, isExcelFile } from './excel-import-controller.js';
 
 GlobalWorkerOptions.workerSrc = new URL('../../../vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
