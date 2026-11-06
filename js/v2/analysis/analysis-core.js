@@ -1,5 +1,5 @@
 import { prepareCanonicalScheduleForAnalysis } from './analysis-adapter.js';
-import { analyzeMigratedLegacyChecks } from './legacy-analysis-migrator.js?v=phase9.16';
+import { analyzeMigratedLegacyChecks } from './legacy-analysis-migrator.js?v=phase9.17';
 
 const UNPAID_ACTIVITY_TYPES = new Set(['unpaidBreak']);
 const TRIP_ACTIVITY_TYPES = new Set(['serviceDrive', 'deadRun']);

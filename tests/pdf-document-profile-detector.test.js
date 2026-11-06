@@ -160,3 +160,15 @@ for (const [family, day] of [
     assert.equal(detectPdfDocumentProfile({text: `${title} ${tableHeader}`}).status, 'unsupported');
   });
 }
+
+for (const family of ['Stadtbus', 'Straßenbahn']) {
+  test(`erkennt Veranstaltungstitel mit Einzeldatum: ${family}`, () => {
+    const title = `Dienste ${family}, Lange Nacht der Wissenschaften, am 20.11.2026`;
+    const result = detectPdfDocumentProfile({ text: `${title} ${tableHeader} Vorbereitung Dienst Pause`, pageCount: 17 });
+    assert.equal(result.status, 'supported');
+    assert.equal(result.title, title);
+    assert.equal(result.profile.id, 'beu-stadtbus-v1');
+    assert.equal(result.documentFamily, family === 'Straßenbahn' ? 'tram' : undefined);
+    assert.equal(detectPdfDocumentProfile({ text: `${title} ${tableHeader}` }).status, 'unsupported');
+  });
+}

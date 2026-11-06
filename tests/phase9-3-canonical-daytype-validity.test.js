@@ -85,3 +85,18 @@ test('Phase 9.3: report context reads the canonical day type when matching is ab
   const context = deriveReportContext({ primaryImport: { canonicalSchedule: schedule } });
   assert.equal(context.metadata.dayType, 'mo_fr');
 });
+
+test('Veranstaltung am konkreten Datum bleibt ein Einzeltag ohne erfundenen Schulzeitraum', () => {
+  const result = resolveCanonicalValidity({headerText: 'Dienste Stadtbus, Lange Nacht der Wissenschaften, am 20.11.2026'});
+  assert.equal(result.dayType, 'mo_fr');
+  assert.equal(result.dayTypeSource, 'HEADER');
+  assert.equal(result.validOn, '2026-11-20');
+  assert.equal(result.validFrom, null);
+  assert.equal(result.serviceRegime, 'unknown');
+});
+
+test('ungültiges Veranstaltungsdatum liefert keine erfundene Tagesart', () => {
+  const result = resolveCanonicalValidity({headerText: 'Dienste Stadtbus, Sonderfahrt, am 31.02.2026'});
+  assert.equal(result.dayType, 'unknown');
+  assert.equal(result.validOn, undefined);
+});

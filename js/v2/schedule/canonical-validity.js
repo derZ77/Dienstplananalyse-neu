@@ -50,6 +50,16 @@ function validFromFromText(value) {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : null;
 }
 
+function singleDateFromText(value) {
+  const match = text(value).match(/\bam\s+(\d{2})\.(\d{2})\.(\d{4})\b/i);
+  if (!match) return null;
+  const iso = `${match[3]}-${match[2]}-${match[1]}`;
+  const date = new Date(`${iso}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== iso) return null;
+  const day = date.getUTCDay();
+  return { iso, dayType: day === 6 ? 'saturday' : day === 0 ? 'sunday' : 'mo_fr' };
+}
+
 function fromMetadata(metadata, field, values) {
   const value = text(metadata?.[field]);
   return values.includes(value) ? { value, source: 'DOCUMENT_METADATA' } : null;
@@ -68,8 +78,10 @@ export function resolveCanonicalValidity({ headerText = '', documentMetadata = n
   const header = text(headerText);
   const metadata = documentMetadata && typeof documentMetadata === 'object' ? documentMetadata : {};
   const file = text(fileName);
+  const singleDate = singleDateFromText(header);
   const day = firstKnown([
     dayTypeFromText(header) && { value: dayTypeFromText(header), source: 'HEADER' },
+    singleDate && { value: singleDate.dayType, source: 'HEADER' },
     fromMetadata(metadata, 'dayType', CANONICAL_DAY_TYPES),
     dayTypeFromFilename(file) && { value: dayTypeFromFilename(file), source: 'FILENAME' }
   ]);
@@ -91,6 +103,7 @@ export function resolveCanonicalValidity({ headerText = '', documentMetadata = n
     serviceRegimeSource: regime.source,
     validFrom: validFrom.value === 'unknown' ? null : validFrom.value,
     validFromSource: validFrom.value === 'unknown' ? 'UNKNOWN' : validFrom.source,
+    ...(singleDate ? { validOn: singleDate.iso, validOnSource: 'HEADER' } : {}),
     rawLabel: header || null
   };
 }
