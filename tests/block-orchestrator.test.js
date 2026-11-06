@@ -59,3 +59,11 @@ test('Block-Orchestrator zeigt belegten PDF-Titel bei unbekanntem Nummernschema'
   assert.equal(blocks.planHinweis, title);
   assert.equal(blocks.planTypeText, `Erkannter Dienstplan: ${title}`);
 });
+
+test('neuer Straßenbahn-Titel ohne Schulzusatz erhält keinen erfundenen Schulzeitraum', () => {
+  const schedule = adaptExcelRowsToCanonicalSchedule(rows, { layout: 'legacy-tabular-17-column' });
+  const title = 'Dienste Straßenbahn, Montag - Freitag, ab 19.12.2026';
+  schedule.validity = { dayType: 'mo_fr', dayTypeSource: 'HEADER', serviceRegime: 'unknown', rawLabel: title };
+  const result = createOriginalBlockViewModel(schedule);
+  assert.equal(result.planHinweis, title);
+});

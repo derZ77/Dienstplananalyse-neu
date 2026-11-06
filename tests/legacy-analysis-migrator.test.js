@@ -53,3 +53,16 @@ test('migrierte Blöcke 1–8 liefern dieselben fachlichen Ergebnisse wie die ta
 test('migrator akzeptiert nur CanonicalSchedule', () => {
   assert.throws(() => analyzeMigratedLegacyChecks({ type: 'ExcelWorkbook' }), /CanonicalSchedule/);
 });
+
+test('dreistellige Stadtbusdienste verwenden die belegte Samstag-Gültigkeit für Wochenendschichten', () => {
+  const schedule = adaptExcelRowsToCanonicalSchedule([
+    ['Kopf'],
+    ['', '', '311', 'Dienst', '10100', '04:00', 'Burgau', '', '', '12:00', 'Burgau', '', '', '', '03:39', '12:00', '07:51']
+  ], { layout: 'legacy-tabular-17-column' });
+  schedule.validity = { dayType: 'saturday', dayTypeSource: 'HEADER', serviceRegime: 'unknown', rawLabel: 'Dienste Stadtbus, Samstag, ab 19.12.2026' };
+  const result = analyzeMigratedLegacyChecks(schedule);
+  assert.equal(result.shifts.weekend, true);
+  assert.equal(result.shifts.assignments[0].shift, 'WE-F1');
+  assert.equal(result.plan.vehicle, 'Bus');
+  assert.equal(result.plan.timeframe, 'Samstag');
+});

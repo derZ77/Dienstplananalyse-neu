@@ -145,3 +145,18 @@ test('lehnt Regionalbus mit unbekanntem Titelzusatz weiterhin ab', () => {
     text: `Dienste Regionalbus Montag bis Freitag Sonderformat, ab 26.10.2026 ${tableHeader} Vorbereitungszeit`
   }).status, 'unsupported');
 });
+
+for (const [family, day] of [
+  ['Stadtbus', 'Montag - Freitag Ferien'], ['Stadtbus', 'Montag - Freitag Schule'],
+  ['Stadtbus', 'Samstag'], ['Stadtbus', 'Sonn- und Feiertag'],
+  ['Straßenbahn', 'Montag - Freitag'], ['Straßenbahn', 'Samstag'], ['Straßenbahn', 'Sonn- und Feiertag']
+]) {
+  test(`erkennt Dezember-Titel mit Komma: ${family}, ${day}`, () => {
+    const title = `Dienste ${family}, ${day}, ab 19.12.2026`;
+    const result = detectPdfDocumentProfile({text: `${title} ${tableHeader} 311 Vorbereitung 03:39 Burgau 03:44 Burgau`, pageCount: 1});
+    assert.equal(result.status, 'supported');
+    assert.equal(result.title, title);
+    assert.equal(result.documentFamily, family === 'Straßenbahn' ? 'tram' : undefined);
+    assert.equal(detectPdfDocumentProfile({text: `${title} ${tableHeader}`}).status, 'unsupported');
+  });
+}

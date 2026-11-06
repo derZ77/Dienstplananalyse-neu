@@ -4,7 +4,7 @@
  * all structured findings are delegated to the already migrated legacy analysis.
  */
 
-import { analyzeCanonicalScheduleWithMigratedLegacyChecks } from '../analysis/analysis-core.js';
+import { analyzeCanonicalScheduleWithMigratedLegacyChecks } from '../analysis/analysis-core.js?v=phase9.15';
 import { normalizeTimeline } from '../pdf/timeline-normalization.js';
 
 const UNAVAILABLE_DRIVING_TIME = [
@@ -35,7 +35,7 @@ export function createOriginalBlockViewModel(canonicalSchedule, { checkReport = 
   const legacy = analysis.legacyAnalyses;
   const planHinweis = canonicalSchedule.validity?.dayTypes?.length > 1
     ? 'Gemischter Wochenendplan – Samstag / Sonn- und Feiertag'
-    : !legacy.plan.vehicle && canonicalSchedule.validity?.dayTypeSource === 'HEADER' && canonicalSchedule.validity?.rawLabel
+    : (!legacy.plan.vehicle || canonicalSchedule.validity?.serviceRegime === 'unknown') && canonicalSchedule.validity?.dayTypeSource === 'HEADER' && canonicalSchedule.validity?.rawLabel
       ? (canonicalSchedule.validity.rawLabel.match(/^.*?\bab\s+\d{2}\.\d{2}\.\d{4}\b/)?.[0] || canonicalSchedule.validity.rawLabel)
       : legacy.plan.label;
   const pauses = collectBlock10Events(canonicalSchedule);

@@ -18,7 +18,7 @@ const MIN_SPLIT_INTERRUPTION_MINUTES = 120;
 export function analyzeMigratedLegacyChecks(canonicalSchedule) {
   const schedule = prepareCanonicalScheduleForAnalysis(canonicalSchedule);
   const services = schedule.services.slice().sort(compareServiceNumber);
-  const plan = detectLegacyPlan(services);
+  const plan = detectLegacyPlan(services, schedule.validity);
   const sharedServices = findSharedServices(services, schedule.interruptions);
   const reserveServices = services.filter(service => RESERVE_SERVICE_NUMBERS.has(toNumber(service.serviceNumber)));
   const uniqueServiceNumbers = new Set(
@@ -54,7 +54,7 @@ export function toMigratedLegacyAnalysisDebugJson(result, spacing = 2) {
   return JSON.stringify(result, null, spacing);
 }
 
-function detectLegacyPlan(services) {
+function detectLegacyPlan(services, validity) {
   const ids = services.map(service => toNumber(service.serviceNumber)).filter(Number.isInteger);
   const hasAnyInRange = (min, max) => ids.some(id => id >= min && id <= max);
   let vehicle = null;
@@ -65,6 +65,18 @@ function detectLegacyPlan(services) {
   } else if (hasAnyInRange(2101, 2499)) {
     vehicle = 'Bus';
     timeframe = timeframeForRange(ids, 2101);
+  }
+  // New numbering schemes cannot establish a day type. Prefer explicit header
+  // evidence to treating three-digit weekend duties as weekday duties.
+  if (!vehicle && validity?.dayTypeSource === 'HEADER') {
+    const header = validity.rawLabel?.match(/^.*?\bab\s+\d{2}\.\d{2}\.\d{4}\b/)?.[0] || validity.rawLabel || '';
+    vehicle = /\b(?:Stadtbus|Regionalbus)\b/.test(header) ? 'Bus'
+      : /Straßenbahn|\bTram\b/.test(header) ? 'Straßenbahn' : null;
+    timeframe = { saturday: 'Samstag', sunday: 'Sonntag', sunday_holiday: 'Sonntag',
+      mo_fr: validity.serviceRegime === 'school' ? 'Mo–Fr Schule'
+        : validity.serviceRegime === 'holidays' ? 'Mo–Fr Ferien' : 'Mo–Fr'
+    }[validity.dayType] || null;
+    if (vehicle && timeframe) return { vehicle, timeframe, label: header, source: 'HEADER' };
   }
   const label = vehicle && timeframe
     ? `${vehicle} – ${timeframe}`

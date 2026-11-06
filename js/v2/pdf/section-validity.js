@@ -1,9 +1,9 @@
-import { resolveCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.14';
+import { resolveCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.15';
 
 /** Headings apply to following tables, including multiple day sections on one page. */
 export function attachSectionValidity(schedule, layout) {
   const headings = (layout.pages || []).flatMap(page => (page.lines || [])
-    .filter(line => /^Dienste\s+(?:Dienstschulung\s+)?(?:Regionalbus|Stadtbus|Straßenbahn|Tram)\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}$/.test(line.text || ''))
+    .filter(line => /^Dienste\s+(?:Dienstschulung\s+)?(?:Regionalbus|Stadtbus|Straßenbahn|Tram)\s*,?\s+[^,]{1,100},\s+ab\s+\d{2}\.\d{2}\.\d{4}$/.test(line.text || ''))
     .map(line => ({ page: page.number, line: line.index, text: line.text })));
   const headingDays = new Set(headings.map(heading => resolveCanonicalValidity({ headerText: heading.text }).dayType));
   if (headingDays.size <= 1) return schedule;
