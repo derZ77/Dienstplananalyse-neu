@@ -18,9 +18,17 @@ const MIN_SPLIT_INTERRUPTION_MINUTES = 120;
 export function analyzeMigratedLegacyChecks(canonicalSchedule) {
   const schedule = prepareCanonicalScheduleForAnalysis(canonicalSchedule);
   const services = schedule.services.slice().sort(compareServiceNumber);
-  const plan = detectLegacyPlan(services, schedule.validity);
-  const sharedServices = findSharedServices(services, schedule.interruptions);
-  const reserveServices = services.filter(service => RESERVE_SERVICE_NUMBERS.has(toNumber(service.serviceNumber)));
+  const header = schedule.validity?.rawLabel || '';
+  const shortBus = !/Regionalbus|Straßenbahn|\bTram\b/.test(header) &&
+    (/\bStadtbus\b/.test(header) || services.every(service => /^\d{3}$/.test(service.serviceNumber) && toNumber(service.serviceNumber) >= 101 && toNumber(service.serviceNumber) <= 499));
+  // Only the rule lookup restores the removed leading 2; source IDs stay intact.
+  const ruleNumber = service => {
+    const number = toNumber(service.serviceNumber);
+    return shortBus && number >= 100 && number <= 499 ? number + 2000 : number;
+  };
+  const plan = detectLegacyPlan(services, schedule.validity, ruleNumber);
+  const sharedServices = findSharedServices(services, schedule.interruptions, ruleNumber);
+  const reserveServices = services.filter(service => RESERVE_SERVICE_NUMBERS.has(ruleNumber(service)));
   const uniqueServiceNumbers = new Set(
     services
       .map(service => toNumber(service.serviceNumber))
@@ -54,8 +62,8 @@ export function toMigratedLegacyAnalysisDebugJson(result, spacing = 2) {
   return JSON.stringify(result, null, spacing);
 }
 
-function detectLegacyPlan(services, validity) {
-  const ids = services.map(service => toNumber(service.serviceNumber)).filter(Number.isInteger);
+function detectLegacyPlan(services, validity, ruleNumber) {
+  const ids = services.map(ruleNumber).filter(Number.isInteger);
   const hasAnyInRange = (min, max) => ids.some(id => id >= min && id <= max);
   let vehicle = null;
   let timeframe = null;
@@ -94,7 +102,7 @@ function timeframeForRange(ids, start) {
   return null;
 }
 
-function findSharedServices(services, interruptions = []) {
+function findSharedServices(services, interruptions = [], ruleNumber) {
   const servicesWithExplicitSplit = new Set(
     (interruptions || [])
       .filter(isLongServiceInterruption)
@@ -102,7 +110,7 @@ function findSharedServices(services, interruptions = []) {
       .filter(Boolean)
   );
   return services
-    .filter(service => servicesWithExplicitSplit.has(service.id) || isLegacySharedService(toNumber(service.serviceNumber)))
+    .filter(service => servicesWithExplicitSplit.has(service.id) || isLegacySharedService(ruleNumber(service)))
     .map(service => {
       const duration = durationBetween(service.begin, service.end);
       return {

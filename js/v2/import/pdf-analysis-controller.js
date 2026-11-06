@@ -16,17 +16,17 @@
  * Local only: no network, no storage, no new dependency.
  */
 
-import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.15';
-import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.15';
-import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.15';
-import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.15';
-import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.15';
-import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.15';
-import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.15';
-import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.15';
-import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.15';
+import { extractPdfLayoutDocument } from '../pdf/pdf-core.js?v=phase9.16';
+import { normalizePdfLayoutDocument } from '../pdf/document-normalizer.js?v=phase9.16';
+import { mapPdfDocumentToSchedule } from '../pdf/schedule-mapper.js?v=phase9.16';
+import { detectPdfDocumentProfile } from '../pdf/document-profile-detector.js?v=phase9.16';
+import { buildHardenedCanonicalSchedule } from '../pdf/hardened-schedule.js?v=phase9.16';
+import { CANONICAL_INTERRUPTION_KINDS, attachCanonicalInterruptions, createCanonicalInterruption } from '../schedule/canonical-interruption.js?v=phase9.16';
+import { classifyActivityRow, ROW_TYPES } from '../pdf/row-type-contract.js?v=phase9.16';
+import { attachCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.16';
+import { loadJnvUmlauftafelFromPdfLayout } from '../umlauftafel/pdf-umlauftafel-loader.js?v=phase9.16';
 
-import { attachSectionValidity } from '../pdf/section-validity.js?v=phase9.15';
+import { attachSectionValidity } from '../pdf/section-validity.js?v=phase9.16';
 export { attachSectionValidity };
 
 const DETECTION_PAGES = 2;

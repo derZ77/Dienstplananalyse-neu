@@ -66,3 +66,48 @@ test('dreistellige Stadtbusdienste verwenden die belegte Samstag-Gültigkeit fü
   assert.equal(result.plan.vehicle, 'Bus');
   assert.equal(result.plan.timeframe, 'Samstag');
 });
+
+function numberedSchedule(numbers, title = '') {
+  const schedule = adaptExcelRowsToCanonicalSchedule([
+    ['Kopf'],
+    ...numbers.map(number => ['', '', String(number), 'Dienst', '10100', '04:00', 'A', '', '', '12:00', 'A', '', '', '', '04:00', '12:00', '09:00'])
+  ], { layout: 'legacy-tabular-17-column' });
+  if (title) schedule.validity = { dayType: 'mo_fr', dayTypeSource: 'HEADER', serviceRegime: 'holidays', rawLabel: title };
+  return schedule;
+}
+
+test('neue Stadtbusnummern erhalten Reserve- und Teilungsregeln ohne Umnummerierung', () => {
+  const result = analyzeMigratedLegacyChecks(numberedSchedule(
+    [101, 102, 140, 159, 201, 202, 240, 259, 301, 302, 401, 402],
+    'Dienste Stadtbus, Montag - Freitag Ferien, ab 19.12.2026'
+  ));
+  assert.deepEqual(result.reserveServices, ['101', '102', '201', '202', '301', '302', '401', '402']);
+  assert.deepEqual(result.sharedServices.map(s => s.serviceNumber), ['140', '159', '240', '259']);
+  assert.equal(result.serviceCount, 12);
+  assert.ok(!result.longServiceParts.some(s => ['101', '201', '301', '401'].includes(s.serviceNumber)));
+});
+
+test('dreistelliges Busnummernschema wird auch ohne Titel erkannt', () => {
+  const result = analyzeMigratedLegacyChecks(numberedSchedule([201, 211, 240]));
+  assert.equal(result.plan.vehicle, 'Bus');
+  assert.equal(result.plan.timeframe, 'Mo–Fr Ferien');
+  assert.deepEqual(result.reserveServices, ['201']);
+  assert.deepEqual(result.sharedServices.map(s => s.serviceNumber), ['240']);
+});
+
+test('Regionalbus und Straßenbahn erhalten keine dreistelligen Stadtbusregeln', () => {
+  for (const family of ['Regionalbus', 'Straßenbahn']) {
+    const result = analyzeMigratedLegacyChecks(numberedSchedule([201, 240], `Dienste ${family} Montag bis Freitag, ab 19.12.2026`));
+    assert.deepEqual(result.reserveServices, []);
+    assert.deepEqual(result.sharedServices, []);
+  }
+  const tram = analyzeMigratedLegacyChecks(numberedSchedule([1201, 1202, 1240]));
+  assert.equal(tram.plan.vehicle, 'Straßenbahn');
+  assert.deepEqual(tram.reserveServices, ['1201', '1202']);
+  assert.deepEqual(tram.sharedServices.map(s => s.serviceNumber), ['1240']);
+});
+
+test('neuer Stadtbusdienst 190 wird wie 2190 behandelt und erhält keine alte Kurznummern-Sonderregel', () => {
+  const result = analyzeMigratedLegacyChecks(numberedSchedule([190, 201], 'Dienste Stadtbus, Montag - Freitag Ferien, ab 19.12.2026'));
+  assert.deepEqual(result.reserveServices, ['201']);
+});

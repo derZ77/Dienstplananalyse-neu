@@ -4,7 +4,7 @@
  * all structured findings are delegated to the already migrated legacy analysis.
  */
 
-import { analyzeCanonicalScheduleWithMigratedLegacyChecks } from '../analysis/analysis-core.js?v=phase9.15';
+import { analyzeCanonicalScheduleWithMigratedLegacyChecks } from '../analysis/analysis-core.js?v=phase9.16';
 import { normalizeTimeline } from '../pdf/timeline-normalization.js';
 
 const UNAVAILABLE_DRIVING_TIME = [
