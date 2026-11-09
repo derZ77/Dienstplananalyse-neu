@@ -60,6 +60,16 @@ function singleDateFromText(value) {
   return { iso, dayType: day === 6 ? 'saturday' : day === 0 ? 'sunday' : 'mo_fr' };
 }
 
+function dateRangeFromText(value) {
+  const m = text(value).match(/\b(\d{2})\.(\d{2})\.(\d{4})?\s*[-–]\s*(\d{2})\.(\d{2})\.(\d{4})\b/);
+  if (!m) return null;
+  const startYear = m[3] || String(Number(m[6]) - (Number(m[2]) > Number(m[5]) ? 1 : 0));
+  const from = `${startYear}-${m[2]}-${m[1]}`;
+  const until = `${m[6]}-${m[5]}-${m[4]}`;
+  const valid = iso => { const date = new Date(`${iso}T12:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === iso; };
+  return valid(from) && valid(until) && from <= until ? { from, until } : null;
+}
+
 function fromMetadata(metadata, field, values) {
   const value = text(metadata?.[field]);
   return values.includes(value) ? { value, source: 'DOCUMENT_METADATA' } : null;
@@ -79,6 +89,7 @@ export function resolveCanonicalValidity({ headerText = '', documentMetadata = n
   const metadata = documentMetadata && typeof documentMetadata === 'object' ? documentMetadata : {};
   const file = text(fileName);
   const singleDate = singleDateFromText(header);
+  const range = dateRangeFromText(header);
   const day = firstKnown([
     dayTypeFromText(header) && { value: dayTypeFromText(header), source: 'HEADER' },
     singleDate && { value: singleDate.dayType, source: 'HEADER' },
@@ -91,6 +102,7 @@ export function resolveCanonicalValidity({ headerText = '', documentMetadata = n
     regimeFromFilename(file) && { value: regimeFromFilename(file), source: 'FILENAME' }
   ]);
   const validFrom = firstKnown([
+    range && { value: range.from, source: 'HEADER' },
     validFromFromText(header) && { value: validFromFromText(header), source: 'HEADER' },
     text(metadata.validFrom) && { value: text(metadata.validFrom), source: 'DOCUMENT_METADATA' },
     validFromFromText(file) && { value: validFromFromText(file), source: 'FILENAME' }
@@ -104,6 +116,7 @@ export function resolveCanonicalValidity({ headerText = '', documentMetadata = n
     validFrom: validFrom.value === 'unknown' ? null : validFrom.value,
     validFromSource: validFrom.value === 'unknown' ? 'UNKNOWN' : validFrom.source,
     ...(singleDate ? { validOn: singleDate.iso, validOnSource: 'HEADER' } : {}),
+    ...(range ? { validUntil: range.until, validUntilSource: 'HEADER' } : {}),
     rawLabel: header || null
   };
 }

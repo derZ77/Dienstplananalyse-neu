@@ -54,7 +54,8 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   const normalized = normalizePdfText(text);
   const standardTitle = normalized.match(/Dienste\s+(?:Dienstschulung\s+)?(?:Regionalbus|Stadtbus|Straßenbahn|Tram)\s*,?\s+[^,]{1,100},\s+(?:ab|am)\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
   const timeChangeTitle = normalized.match(/Dienste\s+(?:Samstag|Sonntag)\s+Zeitumstellung\s+am\s+\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
-  const title = standardTitle || timeChangeTitle;
+  const rangeTitle = normalized.match(/Dienste Regionalbus\s*,?\s+Montag\s*(?:bis|-|–)\s*Freitag(?: (?:\((?:Ferien|Schule)\)|Ferien|Schule))?,\s+\d{2}\.\d{2}\.(?:\d{4})?\s*[-–]\s*\d{2}\.\d{2}\.\d{4}/)?.[0] || '';
+  const title = standardTitle || rangeTitle || timeChangeTitle;
   const tableHeaderFound = hasTableHeader(normalized);
 
   // Umlauftafeln have no ten-column Dienstübersicht header. Classification is
@@ -81,7 +82,7 @@ export function detectPdfDocumentProfile({ text, pageCount = 0 }) {
   }
 
   const jesSignals = [
-    /Dienste Regionalbus (?:Montag bis Freitag|Samstag|Sonntag|Sonn- und Feiertag)(?: (?:\((?:Ferien|Schule)\)|Ferien|Schule))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized),
+    /Dienste Regionalbus (?:Montag bis Freitag|Samstag|Sonntag|Sonn- und Feiertag)(?: (?:\((?:Ferien|Schule)\)|Ferien|Schule))?, ab \d{2}\.\d{2}\.\d{4}/.test(normalized) || Boolean(rangeTitle),
     tableHeaderFound,
     /Vorbereitungszeit(?:\s*JES)?|Nachbereitungszeit(?:\s*JES)?|JES(?:\s*Pausenort)?/.test(normalized)
       || hasIndependentServiceData(normalized)

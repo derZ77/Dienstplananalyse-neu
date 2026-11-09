@@ -100,3 +100,9 @@ test('ungültiges Veranstaltungsdatum liefert keine erfundene Tagesart', () => {
   assert.equal(result.dayType, 'unknown');
   assert.equal(result.validOn, undefined);
 });
+
+test('verkürzter Wochenzeitraum behält Beginn und Ende', () => {
+  const v=resolveCanonicalValidity({headerText:'Dienste Regionalbus, Montag - Freitag Schule, 30.11.-04.12.2026'});
+  assert.equal(v.validFrom,'2026-11-30'); assert.equal(v.validUntil,'2026-12-04');
+  assert.equal(v.dayType,'mo_fr'); assert.equal(v.serviceRegime,'school');
+});

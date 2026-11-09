@@ -122,7 +122,7 @@ function hasPlausibleFollowingServiceRow(lines, headerLine) {
       .map(object => object.text.trim())
       .join(' ')
       .trim();
-    if (!/^\d{2,5}$/.test(firstColumnText)) return false;
+    if (!/^\d{2,5}(?:-\d+)?(?:_[A-Za-z0-9]+)?$/.test(firstColumnText)) return false;
     return (line.text.match(/\b(?:[01]?\d|2[0-3]):[0-5]\d\b/g) || []).length >= 2;
   });
 }

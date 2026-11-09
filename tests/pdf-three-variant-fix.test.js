@@ -232,3 +232,9 @@ test('real citybus Saturday PDF is detected as BEU and keeps Saturday and overni
   assert.match(targets.get('count-result').innerHTML, /31/);
   assert.match(targets.get('pause-result').innerHTML, /Pausen zwischen/);
 });
+
+test('einzelne Tabelle akzeptiert Dienstnummer mit Suffix', () => {
+  const lines = [pdfLine(['Dienst','Umlauf','Tätigkeit','Abfahrt','Abfahrtsort','Ankunft','Ankunftsort','Beginn','Ende','Bez. Zeit'],700),
+    pdfLine(['501_JES','','Vorbereitungszeit','06:10','Eisenberg','06:25','Eisenberg','06:10','17:27','07:18'],680)];
+  assert.equal(reconstructTablesAndBlocks(lines,8,{xMin:0,yMin:0,xMax:600,yMax:800}).tables.length,1);
+});

@@ -1,4 +1,4 @@
-import { resolveCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.17';
+import { resolveCanonicalValidity } from '../schedule/canonical-validity.js?v=phase9.18';
 
 /** Headings apply to following tables, including multiple day sections on one page. */
 export function attachSectionValidity(schedule, layout) {

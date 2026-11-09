@@ -31,8 +31,8 @@ export function analyzeMigratedLegacyChecks(canonicalSchedule) {
   const reserveServices = services.filter(service => RESERVE_SERVICE_NUMBERS.has(ruleNumber(service)));
   const uniqueServiceNumbers = new Set(
     services
-      .map(service => toNumber(service.serviceNumber))
-      .filter(serviceNumber => Number.isInteger(serviceNumber) && serviceNumber >= 1)
+      .map(service => String(service.serviceNumber || '').trim())
+      .filter(serviceNumber => /^\d+(?:-\d+)?(?:_[A-Za-z0-9]+)?$/.test(serviceNumber) && toNumber(serviceNumber) >= 1)
   );
 
   return {

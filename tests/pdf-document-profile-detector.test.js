@@ -172,3 +172,10 @@ for (const family of ['Stadtbus', 'Straßenbahn']) {
     assert.equal(detectPdfDocumentProfile({ text: `${title} ${tableHeader}` }).status, 'unsupported');
   });
 }
+
+test('Regionalbus mit begrenztem Wochenzeitraum wird erkannt', () => {
+  const title='Dienste Regionalbus, Montag - Freitag Schule, 30.11.-04.12.2026';
+  const result=detectPdfDocumentProfile({text:`${title} ${tableHeader} 501_JES Vorbereitungszeit 06:10 Eisenberg 06:25 Eisenberg`});
+  assert.equal(result.status,'supported');
+  assert.equal(result.title,title);
+});

@@ -111,3 +111,11 @@ test('neuer Stadtbusdienst 190 wird wie 2190 behandelt und erhält keine alte Ku
   const result = analyzeMigratedLegacyChecks(numberedSchedule([190, 201], 'Dienste Stadtbus, Montag - Freitag Ferien, ab 19.12.2026'));
   assert.deepEqual(result.reserveServices, ['201']);
 });
+
+test('Dienste mit Suffix und Teilnummern werden getrennt gezählt', () => {
+  const schedule=numberedSchedule([521,522],'Dienste Regionalbus Montag bis Freitag Schule, ab 30.11.2026');
+  schedule.services[0].serviceNumber='521-1_JES';
+  schedule.services[1].serviceNumber='521-2_JES';
+  const result=analyzeMigratedLegacyChecks(schedule);
+  assert.equal(result.serviceCount,2);
+});
