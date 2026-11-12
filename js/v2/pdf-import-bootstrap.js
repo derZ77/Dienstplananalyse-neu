@@ -5,6 +5,7 @@ import { deriveReportContext } from './report/check-report-view-model.js';
 import { createDienstplanExportController } from './export/dienstplan-export-ui.js';
 import { createDienstuebersichtExportController } from './export/dienstuebersicht-export-ui.js';
 import { createOriginalBlockViewModel } from './blocks/block-orchestrator.js';
+import { renderAbruestzeitBlock } from './blocks/abruestzeit-block.js';
 import { clearOriginalBlocks, renderOriginalBlocks, renderVehicleCardBlock7 } from './blocks/block-renderer.js';
 import { createVehicleCardBlock7ViewModel, resolveVehicleCardScheduleForBlock7 } from './blocks/wagenkarte-block7.js';
 import { buildImportWorkflowSummary } from './ui/import-workflow-view.js';
@@ -70,6 +71,7 @@ function render(state) {
   setStatus(matchingStatusEl, state.matchingStatus);
   setStatus(ruleAnalysisStatusEl, state.ruleAnalysisStatus);
   const canonicalSchedule = state?.primaryImport?.canonicalSchedule;
+  renderAbruestzeitBlock(canonicalSchedule, state?.primaryImport?.detection);
   const vehicleCardSchedule = resolveVehicleCardScheduleForBlock7(state);
   renderValidityControls(canonicalSchedule);
   if (canonicalSchedule?.type === 'CanonicalSchedule') {
